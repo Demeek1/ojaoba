@@ -11,12 +11,38 @@ const shopify = () => axios.create({
 const toKobo = (price: any): number => Math.round(parseFloat(price || '0') * 100);
 
 export const syncProducts = async (): Promise<{ synced: number; categories: string[] }> => {
+  // Step 1: Build product → collection map from Shopify collections
+  const productCollectionMap: Record<string, string> = {};
+  try {
+    const { data: colData } = await shopify().get('/custom_collections.json', { params: { limit: 250 } });
+    for (const col of colData.custom_collections || []) {
+      let colPageInfo: string | null = null;
+      do {
+        const colParams: any = { collection_id: col.id, limit: 250 };
+        if (colPageInfo) colParams.page_info = colPageInfo;
+        const { data: collectsData, headers: ch } = await shopify().get('/collects.json', { params: colParams });
+        for (const c of collectsData.collects || []) {
+          if (!productCollectionMap[String(c.product_id)]) {
+            productCollectionMap[String(c.product_id)] = col.title;
+          }
+        }
+        const cl: string = (ch as any).link || '';
+        const nx = cl.match(/<[^>]*page_info=([^>&"]+)[^>]*>;\s*rel="next"/);
+        colPageInfo = nx ? nx[1] : null;
+      } while (colPageInfo);
+    }
+    console.log(`[Shopify] Built collection map for ${Object.keys(productCollectionMap).length} products`);
+  } catch (e: any) {
+    console.warn('[Shopify] Could not build collection map:', e.message);
+  }
+
+  // Step 2: Sync all products (active + draft) with collection-based categories
   let pageInfo: string | null = null;
   let synced = 0;
 
   do {
-    const params: any = { limit: 250, status: 'active' };
-    if (pageInfo) { delete params.status; params.page_info = pageInfo; }
+    const params: any = { limit: 250 };
+    if (pageInfo) params.page_info = pageInfo;
     const { data, headers } = await shopify().get('/products.json', { params }).catch((e: any) => {
       const msg = e.response?.data ? JSON.stringify(e.response.data) : e.message;
       throw new Error(`Shopify API error: ${msg}`);
@@ -25,11 +51,13 @@ export const syncProducts = async (): Promise<{ synced: number; categories: stri
     for (const p of data.products || []) {
       const fv = p.variants?.[0];
       const variants = (p.variants || []).map((v: any) => ({ id: String(v.id), title: v.title === 'Default Title' ? null : v.title, priceKobo: toKobo(v.price), inventory: v.inventory_quantity ?? null, available: (v.inventory_quantity ?? 1) > 0 }));
+      const category = productCollectionMap[String(p.id)] || p.product_type?.trim() || 'General';
+      const available = p.status === 'active' || (fv?.inventory_quantity ?? 0) > 0;
       await db.query(`
         INSERT INTO products (id,shopify_id,title,description,category,tags,price_kobo,compare_price_kobo,image_url,available,inventory,variants,handle,shopify_url,updated_at)
         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,NOW())
         ON CONFLICT (shopify_id) DO UPDATE SET title=$3,description=$4,category=$5,tags=$6,price_kobo=$7,compare_price_kobo=$8,image_url=$9,available=$10,inventory=$11,variants=$12,updated_at=NOW()
-      `, [uuidv4(), String(p.id), p.title, (p.body_html||'').replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim().slice(0,500), p.product_type?.trim() || (p.tags ? p.tags.split(',').map((t:string)=>t.trim()).filter(Boolean)[0] : null) || 'General', p.tags?p.tags.split(',').map((t:string)=>t.trim()).filter(Boolean):[], toKobo(fv?.price), fv?.compare_at_price?toKobo(fv.compare_at_price):null, p.images?.[0]?.src||null, p.status==='active', fv?.inventory_quantity??null, JSON.stringify(variants), p.handle, `https://${process.env.SHOPIFY_STORE_DOMAIN}/products/${p.handle}`]);
+      `, [uuidv4(), String(p.id), p.title, (p.body_html||'').replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim().slice(0,500), category, p.tags?p.tags.split(',').map((t:string)=>t.trim()).filter(Boolean):[], toKobo(fv?.price), fv?.compare_at_price?toKobo(fv.compare_at_price):null, p.images?.[0]?.src||null, available, fv?.inventory_quantity??null, JSON.stringify(variants), p.handle, `https://${process.env.SHOPIFY_STORE_DOMAIN}/products/${p.handle}`]);
       synced++;
     }
 
@@ -39,7 +67,7 @@ export const syncProducts = async (): Promise<{ synced: number; categories: stri
   } while (pageInfo);
 
   const cats = await getCategories();
-  console.log(`[Shopify] Synced ${synced} products, ${cats.length} categories`);
+  console.log(`[Shopify] Synced ${synced} products across ${cats.length} categories`);
   return { synced, categories: cats };
 };
 
