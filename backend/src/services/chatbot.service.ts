@@ -62,18 +62,18 @@ async function mainMenu(s: any) {
     : `👋 Welcome${name} to *Ojaoba Food Market!* 🍎\nNigeria's freshest food marketplace.\n\n`;
   const cartNote = cartQty>0 ? `🛒 You have *${cartQty} item${cartQty>1?'s':''}* in your cart.\n\n` : '';
   await wa.sendList(s.phone,
-    '🍎 Ojaoba Food Market',
+    'Ojaoba Food Market',
     `${greeting}${cartNote}What would you like to do?`,
-    '📋 Open Menu',
+    'Open Menu',
     [{ title: 'Shop', rows: [
-      { id:'btn_browse',  title:'🛍️ Browse Products', description:'Shop by category' },
-      { id:'btn_search',  title:'🔍 Search Products',  description:'Find any item instantly' },
-      { id:`btn_cart`,    title:`🛒 My Cart${cartQty?` (${cartQty} items)`:''}`, description: cartQty?`${cartQty} item${cartQty>1?'s':''} waiting`:'Your shopping cart' },
+      { id:'btn_browse',  title:'Browse Products', description:'Shop by category' },
+      { id:'btn_search',  title:'Search Products',  description:'Find any item instantly' },
+      { id:'btn_cart',    title:`My Cart${cartQty?` (${cartQty} items)`:''}`, description: cartQty?`${cartQty} item${cartQty>1?'s':''} waiting`:'Your shopping cart' },
     ]}, { title: 'Account', rows: [
-      { id:'btn_orders',  title:'📦 My Orders',  description:'Track your deliveries' },
-      { id:'btn_support', title:'🤝 Support',    description:'Talk to a human agent' },
+      { id:'btn_orders',  title:'My Orders',  description:'Track your deliveries' },
+      { id:'btn_support', title:'Support',    description:'Talk to a human agent' },
     ]}],
-    'Type anything to search 🔍'
+    'Type anything to search'
   );
   await track(s.phone,'main_menu');
 }
@@ -87,17 +87,17 @@ async function showCategories(s: any) {
   const cats = await shopify.getCategories();
   if (!cats.length) { await wa.sendText(s.phone,'😔 Our catalogue is updating. Please check back in a few minutes!\n\nType *menu* to go home.'); return; }
   await set(s.id, { state:'CATEGORIES', context:{} });
-  // Split into sections of max 10 rows each — all tappable buttons
+  // Split into sections of max 10 rows — use index-based IDs to avoid special char issues
   const sections: { title: string; rows: { id: string; title: string; description: string }[] }[] = [];
   const chunkSize = 10;
   for (let i = 0; i < cats.length; i += chunkSize) {
     const chunk = cats.slice(i, i + chunkSize);
     sections.push({
-      title: i === 0 ? '🛒 Shop by Category' : '📦 More Categories',
-      rows: chunk.map(c => ({ id: `cat_${c}`, title: c.slice(0, 24), description: `Tap to browse ${c.slice(0,30)}` })),
+      title: i === 0 ? 'Shop by Category' : 'More Categories',
+      rows: chunk.map((c, j) => ({ id: `catidx_${i + j}`, title: c.slice(0, 24), description: `Tap to browse` })),
     });
   }
-  await wa.sendList(s.phone, '🛍️ Product Categories', `We have ${cats.length} categories — tap any to start shopping!`, '🗂️ Pick Category', sections, 'Or type a product name to search');
+  await wa.sendList(s.phone, 'Product Categories', `${cats.length} categories — tap any to start shopping!`, 'Pick Category', sections, 'Or type a product name to search');
   await track(s.phone,'categories');
 }
 
@@ -109,11 +109,11 @@ async function showProducts(s: any, category: string, page=1) {
   }
   await set(s.id,{ state:'PRODUCTS', context:{ currentCategory:category, currentPage:page, totalPages, searchResults:products.map((p:any)=>p.id) } });
 
-  // Products as tappable list rows
-  const rows = products.map((p:any) => ({
-    id: `view_${p.id}`,
+  // Products as tappable list rows — use index IDs to avoid UUID special char issues
+  const rows = products.map((p:any, i:number) => ({
+    id: `pidx_${i}`,
     title: p.title.slice(0, 24),
-    description: `${kobo(p.price_kobo)}${p.compare_price_kobo && p.compare_price_kobo > p.price_kobo ? ' 🔖SALE' : ''}`,
+    description: `${kobo(p.price_kobo)}${p.compare_price_kobo && p.compare_price_kobo > p.price_kobo ? ' SALE' : ''}`,
   }));
   const navRows: {id:string;title:string;description:string}[] = [];
   if (page > 1) navRows.push({ id:'btn_prev', title:'⬅️ Previous Page', description:`Back to page ${page-1}` });
@@ -327,13 +327,14 @@ export const processMessage = async (phone: string, rawText: string, messageId: 
       break;
 
     case 'CATEGORIES': {
+      // Index-based tap from list
+      if (input.startsWith('catidx_')) { const idx=parseInt(input.slice(7)); const allCats=await shopify.getCategories(); if(allCats[idx]) return showProducts(s,allCats[idx],1); break; }
       if (input.startsWith('cat_')) { const slug=input.slice(4); const allCats=await shopify.getCategories(); const match=allCats.find(c=>c.toLowerCase()===slug)||slug; return showProducts(s,match,1); }
       const n=parseInt(input); if (!isNaN(n)&&n>0) { const cats=await shopify.getCategories(); if(cats[n-1]) return showProducts(s,cats[n-1],1); }
       if (rawText.toLowerCase().startsWith('search ')) return handleSearch(s, rawText.slice(7).trim());
       const cats=await shopify.getCategories(); const m=cats.find(c=>c.toLowerCase().includes(input)); if(m) return showProducts(s,m,1);
-      // Auto-search fallback in categories
       if (rawText.trim().length >= 2) return handleSearch(s, rawText.trim());
-      await wa.sendText(s.phone,'⚠️ Select a category number, or just type a product name to search.');
+      await wa.sendText(s.phone,'⚠️ Tap a category or type a product name to search.');
       break;
     }
 
@@ -341,7 +342,8 @@ export const processMessage = async (phone: string, rawText: string, messageId: 
       if (BACK.has(input)||input==='btn_back'||input==='btn_categories') return showCategories(s);
       if (input==='next'||input==='btn_next') return showProducts(s,s.context.currentCategory!,(s.context.currentPage||1)+1);
       if (input==='prev'||input==='previous'||input==='btn_prev') return showProducts(s,s.context.currentCategory!,Math.max(1,(s.context.currentPage||1)-1));
-      // Tappable list row — view product
+      // Tappable list row — view product by index
+      if (input.startsWith('pidx_')) { const idx=parseInt(input.slice(5)); const pid=(s.context.searchResults||[])[idx]; if(pid){const p=await shopify.getProduct(pid);if(p)return showProduct(s,p);} break; }
       if (input.startsWith('view_')) { const pid=input.slice(5); const p=await shopify.getProduct(pid); if(p) return showProduct(s,p); break; }
       const addMatch=input.match(/^add_(\d+)_(.+)$/);
       if (addMatch) return addToCart(s, addMatch[2], parseInt(addMatch[1])||1);
