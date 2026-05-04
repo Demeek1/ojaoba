@@ -47,7 +47,7 @@ app.use('/api/products', productRoutes);
 // ── Shopify OAuth (one-time setup) ────────────────────────────────────────────
 app.get('/api/shopify/install', (_req, res) => {
   const shop    = process.env.SHOPIFY_STORE_DOMAIN || 'kn1bqs-ae.myshopify.com';
-  const apiKey  = process.env.SHOPIFY_API_KEY || '9b95d110912f53ca4d37fa5ed12e04e5';
+  const apiKey  = process.env.SHOPIFY_API_KEY!;
   const redirect = `${process.env.BACKEND_URL}/api/shopify/callback`;
   const scopes  = 'read_products,write_orders,read_inventory';
   res.redirect(`https://${shop}/admin/oauth/authorize?client_id=${apiKey}&scope=${scopes}&redirect_uri=${redirect}&state=ojaoba2024`);
@@ -58,10 +58,10 @@ app.get('/api/shopify/callback', async (req, res) => {
   if (!code) { res.status(400).send('Missing code'); return; }
   try {
     const axios = require('axios');
-    const shop  = process.env.SHOPIFY_STORE_DOMAIN || 'kn1bqs-ae.myshopify.com';
+    const shop  = process.env.SHOPIFY_STORE_DOMAIN!;
     const { data } = await axios.post(`https://${shop}/admin/oauth/access_token`, {
-      client_id:     process.env.SHOPIFY_API_KEY     || '9b95d110912f53ca4d37fa5ed12e04e5',
-      client_secret: process.env.SHOPIFY_API_SECRET  || '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',
+      client_id:     process.env.SHOPIFY_API_KEY,
+      client_secret: process.env.SHOPIFY_API_SECRET,
       code,
     });
     const token = data.access_token;
