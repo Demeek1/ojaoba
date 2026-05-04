@@ -9,9 +9,9 @@ const kobo = (n: number | bigint) => `₦${(Number(n)/100).toLocaleString('en-NG
 const EMOJI = ['1️⃣','2️⃣','3️⃣','4️⃣','5️⃣','6️⃣','7️⃣','8️⃣','9️⃣','🔟'];
 const MAIN  = new Set(['menu','home','start','hi','hello','hey','0','back to menu','main menu']);
 const BACK  = new Set(['back','b','cancel','go back']);
-const HELP  = new Set(['help','support','human','agent','5']);
-const ORDERS= new Set(['orders','my orders','track','order status','4']);
-const CART  = new Set(['cart','my cart','basket','3']);
+const HELP  = new Set(['help','support','human','agent']);
+const ORDERS= new Set(['orders','my orders','track','order status']);
+const CART  = new Set(['cart','my cart','basket']);
 
 // ── Session ───────────────────────────────────────────────────────────────────
 async function getSession(phone: string, name?: string) {
@@ -236,9 +236,9 @@ export const processMessage = async (phone: string, rawText: string, messageId: 
 
   // Global commands
   if (MAIN.has(input)||input==='btn_menu') return mainMenu(s);
-  if (input==='btn_browse'||input==='1'||input==='categories'||input==='browse') return showCategories(s);
+  if (input==='btn_browse'||input==='categories'||input==='browse') return showCategories(s);
   if (CART.has(input)||input==='btn_cart') return showCart({ ...s });
-  if (ORDERS.has(input)) return showOrders(s);
+  if (ORDERS.has(input)||input==='btn_orders') return showOrders(s);
   if (HELP.has(input)) {
     await set(s.id,{ state:'SUPPORT' });
     const phone_s = await getSetting('support_phone','+234 800 000 0000');
@@ -252,6 +252,7 @@ export const processMessage = async (phone: string, rawText: string, messageId: 
       if (input==='btn_browse'||input==='1') return showCategories(s);
       if (input==='btn_cart'  ||input==='3') return showCart(s);
       if (input==='btn_orders'||input==='4') return showOrders(s);
+      if (input==='5') { await set(s.id,{ state:'SUPPORT' }); const sp=await getSetting('support_phone','+234 800 000 0000'); await wa.sendText(s.phone,`🤝 *Ojaoba Support*\n\nA support agent will respond to you shortly.\n\n📞 Call: ${sp}\n📧 Email: support@ojaoba.com\n\nType your message and we'll get back to you.\nType *menu* to continue shopping.`); return; }
       return mainMenu(s);
 
     case 'CATEGORIES': {
