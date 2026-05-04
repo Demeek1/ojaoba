@@ -97,10 +97,10 @@ async function showProduct(s: any, product: any) {
   const stock = product.inventory!==null?(product.inventory>10?'✅ In Stock':product.inventory>0?`⚠️ Only ${product.inventory} left!`:'❌ Out of Stock'):'✅ Available';
   const vtext = variants.length>1&&variants[0].title?`\n\n📦 *Options:* ${variants.map((v:any)=>v.title).filter(Boolean).join(', ')}` :'';
   const disc = product.compare_price_kobo&&product.compare_price_kobo>product.price_kobo?`\n~~${kobo(product.compare_price_kobo)}~~ → *${kobo(product.price_kobo)}* 🎉`:`\n💰 *${kobo(product.price_kobo)}*`;
-  if (product.image_url) await wa.sendImage(s.phone,product.image_url,product.title);
   await wa.sendButtons(s.phone,
     `🍽️ *${product.title}*${disc}${product.description?`\n\n${product.description.slice(0,180)}`:''}${vtext}\n\n${stock}`,
-    [{ id:`add_1_${product.id}`, title:'🛒 Add to Cart' }, { id:`add_2_${product.id}`, title:'➕ Add 2' }, { id:'btn_back', title:'⬅️ Back' }]
+    [{ id:`add_1_${product.id}`, title:'🛒 Add to Cart' }, { id:`add_2_${product.id}`, title:'➕ Add 2' }, { id:'btn_back', title:'⬅️ Back' }],
+    undefined, undefined, product.image_url||undefined
   );
   await track(s.phone,'product_viewed',{ productId:product.id, title:product.title });
 }

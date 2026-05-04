@@ -15,12 +15,13 @@ async function send(payload: object) {
 export const sendText = (to: string, text: string) =>
   send({ messaging_product: 'whatsapp', to, type: 'text', text: { body: text, preview_url: false } });
 
-export const sendButtons = (to: string, body: string, buttons: { id: string; title: string }[], header?: string, footer?: string) => {
+export const sendButtons = (to: string, body: string, buttons: { id: string; title: string }[], header?: string, footer?: string, imageUrl?: string) => {
   const interactive: any = {
     type: 'button', body: { text: body },
     action: { buttons: buttons.slice(0,3).map(b => ({ type: 'reply', reply: { id: b.id, title: b.title.slice(0,20) } })) },
   };
-  if (header) interactive.header = { type: 'text', text: header.slice(0,60) };
+  if (imageUrl) interactive.header = { type: 'image', image: { link: imageUrl } };
+  else if (header) interactive.header = { type: 'text', text: header.slice(0,60) };
   if (footer) interactive.footer = { text: footer.slice(0,60) };
   return send({ messaging_product: 'whatsapp', to, type: 'interactive', interactive });
 };
