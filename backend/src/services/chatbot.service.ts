@@ -82,13 +82,18 @@ async function showCategories(s: any) {
 }
 
 async function showProducts(s: any, category: string, page=1) {
-  const { products, total, totalPages } = await shopify.getProductsByCategory(category, page, 8);
+  const { products, total, totalPages } = await shopify.getProductsByCategory(category, page, 6);
   if (!products.length) { await wa.sendText(s.phone,`😔 No products found in *${category}* right now.\n\nType *categories* to browse other options.`); return; }
-  await set(s.id,{ state:'PRODUCTS', context:{ currentCategory:category, currentPage:page, searchResults:products.map((p:any)=>p.id) } });
-  const lines = products.map((p:any,i:number)=>`${EMOJI[i]||(i+1)+'.'} *${p.title}* — ${kobo(p.price_kobo)}${p.compare_price_kobo&&p.compare_price_kobo>p.price_kobo?' 🔖SALE':''}`);
-  let nav='';
-  if (totalPages>1) { const ps=[]; if(page>1)ps.push('*prev*'); if(page<totalPages)ps.push('*next*'); nav=`\n\n📄 Page ${page}/${totalPages}  |  ${ps.join('  ')}`; }
-  await wa.sendText(s.phone,`🛍️ *${category}* (${total} products)\n\n${lines.join('\n')}${nav}\n\nReply with a *number* to view details.\nType *categories* to go back.`);
+  await set(s.id,{ state:'PRODUCTS', context:{ currentCategory:category, currentPage:page, totalPages, searchResults:products.map((p:any)=>p.id) } });
+  const lines = products.map((p:any,i:number)=>`${EMOJI[i]||(i+1)+'.'} *${p.title}*\n    💰 ${kobo(p.price_kobo)}${p.compare_price_kobo&&p.compare_price_kobo>p.price_kobo?' 🔖SALE':''}`);
+  const pageInfo = totalPages>1 ? `📄 Page ${page}/${totalPages}` : '';
+  await wa.sendText(s.phone,`🛍️ *${category}*  (${total} items)\n${'─'.repeat(24)}\n\n${lines.join('\n\n')}\n\n${'─'.repeat(24)}\n${pageInfo}\n\n_Tap a number to view & add to cart_`);
+  // Action buttons below the list
+  const btns: {id:string;title:string}[] = [];
+  if (page > 1) btns.push({ id:'btn_prev', title:'⬅️ Previous' });
+  if (page < totalPages) btns.push({ id:'btn_next', title:'➡️ Next Page' });
+  btns.push({ id:'btn_categories', title:'🗂️ Categories' });
+  await wa.sendButtons(s.phone, `Tap a number (1–${products.length}) to view product details & choose quantity.`, btns.slice(0,3));
 }
 
 async function showProduct(s: any, product: any) {
@@ -99,10 +104,30 @@ async function showProduct(s: any, product: any) {
   const disc = product.compare_price_kobo&&product.compare_price_kobo>product.price_kobo?`\n~~${kobo(product.compare_price_kobo)}~~ → *${kobo(product.price_kobo)}* 🎉`:`\n💰 *${kobo(product.price_kobo)}*`;
   await wa.sendButtons(s.phone,
     `🍽️ *${product.title}*${disc}${product.description?`\n\n${product.description.slice(0,180)}`:''}${vtext}\n\n${stock}`,
-    [{ id:`add_1_${product.id}`, title:'🛒 Add to Cart' }, { id:`add_2_${product.id}`, title:'➕ Add 2' }, { id:'btn_back', title:'⬅️ Back' }],
+    [{ id:`add_1_${product.id}`, title:'🛒 Add to Cart' }, { id:`qty_${product.id}`, title:'🔢 Choose Qty' }, { id:'btn_back', title:'⬅️ Back' }],
     undefined, undefined, product.image_url||undefined
   );
   await track(s.phone,'product_viewed',{ productId:product.id, title:product.title });
+}
+
+async function showQtyPicker(s: any, productId: string) {
+  const p = await shopify.getProduct(productId);
+  if (!p) return;
+  await set(s.id,{ state:'QTY_SELECT', context:{ ...s.context, currentProductId:productId } });
+  await wa.sendList(s.phone,
+    `🔢 How many *${p.title.slice(0,40)}*?`,
+    `Price per unit: ${kobo(p.price_kobo)}`,
+    'Pick Quantity',
+    [{ title:'Select quantity', rows:[
+      { id:`add_1_${productId}`, title:'➕ 1', description:`${kobo(p.price_kobo)}` },
+      { id:`add_2_${productId}`, title:'➕ 2', description:`${kobo(p.price_kobo*2)}` },
+      { id:`add_3_${productId}`, title:'➕ 3', description:`${kobo(p.price_kobo*3)}` },
+      { id:`add_4_${productId}`, title:'➕ 4', description:`${kobo(p.price_kobo*4)}` },
+      { id:`add_5_${productId}`, title:'➕ 5', description:`${kobo(p.price_kobo*5)}` },
+      { id:`add_6_${productId}`, title:'➕ 6', description:`${kobo(p.price_kobo*6)}` },
+    ]}],
+    'Tap to select how many you want'
+  );
 }
 
 async function showCart(s: any) {
@@ -265,9 +290,11 @@ export const processMessage = async (phone: string, rawText: string, messageId: 
     }
 
     case 'PRODUCTS': {
-      if (BACK.has(input)||input==='btn_back') return showCategories(s);
-      if (input==='next') return showProducts(s,s.context.currentCategory!,(s.context.currentPage||1)+1);
-      if (input==='prev'||input==='previous') return showProducts(s,s.context.currentCategory!,Math.max(1,(s.context.currentPage||1)-1));
+      if (BACK.has(input)||input==='btn_back'||input==='btn_categories') return showCategories(s);
+      if (input==='next'||input==='btn_next') return showProducts(s,s.context.currentCategory!,(s.context.currentPage||1)+1);
+      if (input==='prev'||input==='previous'||input==='btn_prev') return showProducts(s,s.context.currentCategory!,Math.max(1,(s.context.currentPage||1)-1));
+      const addMatch=input.match(/^add_(\d+)_(.+)$/);
+      if (addMatch) return addToCart(s, addMatch[2], parseInt(addMatch[1])||1);
       const n=parseInt(input);
       if (!isNaN(n)&&n>0) { const pid=(s.context.searchResults||[])[n-1]; if(pid){const p=await shopify.getProduct(pid);if(p)return showProduct(s,p);} await wa.sendText(s.phone,'⚠️ Invalid number. Reply with a number from the list.'); return; }
       if (rawText.toLowerCase().startsWith('search ')) return handleSearch(s, rawText.slice(7).trim());
@@ -277,12 +304,20 @@ export const processMessage = async (phone: string, rawText: string, messageId: 
 
     case 'PRODUCT_DETAIL': {
       if (BACK.has(input)||input==='btn_back') { if(s.context.currentCategory) return showProducts(s,s.context.currentCategory,s.context.currentPage||1); return showCategories(s); }
+      if (input.startsWith('qty_')) return showQtyPicker(s, input.slice(4));
       const addMatch=input.match(/^add_(\d+)_(.+)$/);
       if (addMatch||input==='add'||input==='buy'||rawText.toLowerCase().startsWith('add')) {
         const qty=addMatch?parseInt(addMatch[1]):1;
         const pid=addMatch?addMatch[2]:s.context.currentProductId;
         if (pid) return addToCart(s, pid, isNaN(qty)?1:qty);
       }
+      break;
+    }
+
+    case 'QTY_SELECT': {
+      const addMatch=input.match(/^add_(\d+)_(.+)$/);
+      if (addMatch) return addToCart(s, addMatch[2], parseInt(addMatch[1])||1);
+      if (BACK.has(input)||input==='btn_back') { if(s.context.currentProductId){const p=await shopify.getProduct(s.context.currentProductId);if(p)return showProduct(s,p);} return showCategories(s); }
       break;
     }
 
