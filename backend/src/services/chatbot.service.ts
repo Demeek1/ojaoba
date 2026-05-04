@@ -61,12 +61,26 @@ async function mainMenu(s: any) {
     ? `Welcome back${name}! 🎉 Great to have you again.\n\n`
     : `👋 Welcome${name} to *Ojaoba Food Market!* 🍎\nNigeria's freshest food marketplace.\n\n`;
   const cartNote = cartQty>0 ? `🛒 You have *${cartQty} item${cartQty>1?'s':''}* in your cart.\n\n` : '';
-  await wa.sendButtons(s.phone,
+  await wa.sendList(s.phone,
+    '🍎 Ojaoba Food Market',
     `${greeting}${cartNote}What would you like to do?`,
-    [{ id:'btn_browse', title:'🛍️ Browse Products' }, { id:`btn_cart`, title:`🛒 Cart${cartQty?` (${cartQty})`:''}` }, { id:'btn_orders', title:'📦 My Orders' }],
-    '🍎 Ojaoba Food Market', 'Type *help* for support'
+    '📋 Open Menu',
+    [{ title: 'Shop', rows: [
+      { id:'btn_browse',  title:'🛍️ Browse Products', description:'Shop by category' },
+      { id:'btn_search',  title:'🔍 Search Products',  description:'Find any item instantly' },
+      { id:`btn_cart`,    title:`🛒 My Cart${cartQty?` (${cartQty} items)`:''}`, description: cartQty?`${cartQty} item${cartQty>1?'s':''} waiting`:'Your shopping cart' },
+    ]}, { title: 'Account', rows: [
+      { id:'btn_orders',  title:'📦 My Orders',  description:'Track your deliveries' },
+      { id:'btn_support', title:'🤝 Support',    description:'Talk to a human agent' },
+    ]}],
+    'Type anything to search 🔍'
   );
   await track(s.phone,'main_menu');
+}
+
+async function showSearch(s: any) {
+  await set(s.id, { state:'SEARCH_INPUT' });
+  await wa.sendText(s.phone, `🔍 *Search Ojaoba*\n\nJust type what you're looking for:\n\n_Examples:_\n• rice\n• palm oil\n• indomie\n• zobo drink\n\nType *menu* to go back.`);
 }
 
 async function showCategories(s: any) {
@@ -90,10 +104,11 @@ async function showProducts(s: any, category: string, page=1) {
   await wa.sendText(s.phone,`🛍️ *${category}*  (${total} items)\n${'─'.repeat(24)}\n\n${lines.join('\n\n')}\n\n${'─'.repeat(24)}\n${pageInfo}\n\n_Tap a number to view & add to cart_`);
   // Action buttons below the list
   const btns: {id:string;title:string}[] = [];
-  if (page > 1) btns.push({ id:'btn_prev', title:'⬅️ Previous' });
-  if (page < totalPages) btns.push({ id:'btn_next', title:'➡️ Next Page' });
-  btns.push({ id:'btn_categories', title:'🗂️ Categories' });
-  await wa.sendButtons(s.phone, `Tap a number (1–${products.length}) to view product details & choose quantity.`, btns.slice(0,3));
+  if (page > 1) btns.push({ id:'btn_prev', title:'⬅️ Prev' });
+  if (page < totalPages) btns.push({ id:'btn_next', title:'➡️ Next' });
+  btns.push({ id:'btn_search', title:'🔍 Search' });
+  if (btns.length < 3) btns.push({ id:'btn_categories', title:'🗂️ Categories' });
+  await wa.sendButtons(s.phone, `Tap a *number* to view details & add to cart.\nOr *search* for something specific.`, btns.slice(0,3));
 }
 
 async function showProduct(s: any, product: any) {
@@ -264,7 +279,8 @@ export const processMessage = async (phone: string, rawText: string, messageId: 
   if (input==='btn_browse'||input==='categories'||input==='browse') return showCategories(s);
   if (CART.has(input)||input==='btn_cart') return showCart({ ...s });
   if (ORDERS.has(input)||input==='btn_orders') return showOrders(s);
-  if (HELP.has(input)) {
+  if (input==='search'||input==='btn_search'||input==='find') return showSearch(s);
+  if (HELP.has(input)||input==='btn_support') {
     await set(s.id,{ state:'SUPPORT' });
     const phone_s = await getSetting('support_phone','+234 800 000 0000');
     await wa.sendText(s.phone,`🤝 *Ojaoba Support*\n\nA support agent will respond to you shortly.\n\n📞 Call: ${phone_s}\n📧 Email: support@ojaoba.com\n\nType your message and we'll get back to you.\nType *menu* to continue shopping.`);
@@ -278,14 +294,23 @@ export const processMessage = async (phone: string, rawText: string, messageId: 
       if (input==='btn_cart'  ||input==='3') return showCart(s);
       if (input==='btn_orders'||input==='4') return showOrders(s);
       if (input==='5') { await set(s.id,{ state:'SUPPORT' }); const sp=await getSetting('support_phone','+234 800 000 0000'); await wa.sendText(s.phone,`🤝 *Ojaoba Support*\n\nA support agent will respond to you shortly.\n\n📞 Call: ${sp}\n📧 Email: support@ojaoba.com\n\nType your message and we'll get back to you.\nType *menu* to continue shopping.`); return; }
+      // Auto-search: if user just types a product name from main menu
+      if (rawText.trim().length >= 2 && !input.startsWith('btn_')) return handleSearch(s, rawText.trim());
       return mainMenu(s);
+
+    case 'SEARCH_INPUT':
+      if (rawText.trim().length >= 2) return handleSearch(s, rawText.trim());
+      await wa.sendText(s.phone, '⚠️ Please type at least 2 characters to search.');
+      break;
 
     case 'CATEGORIES': {
       if (input.startsWith('cat_')) { const slug=input.slice(4); const allCats=await shopify.getCategories(); const match=allCats.find(c=>c.toLowerCase()===slug)||slug; return showProducts(s,match,1); }
       const n=parseInt(input); if (!isNaN(n)&&n>0) { const cats=await shopify.getCategories(); if(cats[n-1]) return showProducts(s,cats[n-1],1); }
       if (rawText.toLowerCase().startsWith('search ')) return handleSearch(s, rawText.slice(7).trim());
       const cats=await shopify.getCategories(); const m=cats.find(c=>c.toLowerCase().includes(input)); if(m) return showProducts(s,m,1);
-      await wa.sendText(s.phone,'⚠️ Please select a category from the list, or type *search [item name]*.');
+      // Auto-search fallback in categories
+      if (rawText.trim().length >= 2) return handleSearch(s, rawText.trim());
+      await wa.sendText(s.phone,'⚠️ Select a category number, or just type a product name to search.');
       break;
     }
 
@@ -297,8 +322,9 @@ export const processMessage = async (phone: string, rawText: string, messageId: 
       if (addMatch) return addToCart(s, addMatch[2], parseInt(addMatch[1])||1);
       const n=parseInt(input);
       if (!isNaN(n)&&n>0) { const pid=(s.context.searchResults||[])[n-1]; if(pid){const p=await shopify.getProduct(pid);if(p)return showProduct(s,p);} await wa.sendText(s.phone,'⚠️ Invalid number. Reply with a number from the list.'); return; }
-      if (rawText.toLowerCase().startsWith('search ')) return handleSearch(s, rawText.slice(7).trim());
-      await wa.sendText(s.phone,'⚠️ Reply with a number to view a product, or type *back* for categories.');
+      // Auto-search: typing any word searches instantly
+      if (rawText.trim().length >= 2) return handleSearch(s, rawText.trim());
+      await wa.sendText(s.phone,'⚠️ Reply with a number to view a product, or just type a name to search.');
       break;
     }
 
@@ -382,12 +408,19 @@ async function addToCart(s: any, productId: string, qty: number) {
 }
 
 async function handleSearch(s: any, q: string) {
-  if (!q||q.length<2) { await wa.sendText(s.phone,'⚠️ Type at least 2 characters to search.\n\nExample: *search rice*'); return; }
+  if (!q||q.length<2) { await wa.sendText(s.phone,'⚠️ Type at least 2 characters to search.\n\nExample: *rice*'); return; }
   const results = await shopify.searchProducts(q, 8);
-  if (!results.length) { await wa.sendText(s.phone,`😔 No results for "*${q}*".\n\nTry different keywords, or type *categories* to browse.`); return; }
-  await set(s.id,{ state:'PRODUCTS', context:{ currentCategory:`Search: ${q}`, currentPage:1, searchResults:results.map((p:any)=>p.id) } });
-  const lines = results.map((p:any,i:number)=>`${EMOJI[i]||(i+1)+'.'} *${p.title}* — ${kobo(p.price_kobo)}\n   _${p.category}_`);
-  await wa.sendText(s.phone,`🔍 *"${q}"* — ${results.length} results\n\n${lines.join('\n')}\n\nReply with a *number* to view details.`);
+  if (!results.length) {
+    await wa.sendButtons(s.phone,
+      `😔 No results for *"${q}"*\n\nTry a different keyword or browse by category.`,
+      [{ id:'btn_search', title:'🔍 Search Again' }, { id:'btn_browse', title:'🛍️ Browse' }, { id:'btn_menu', title:'🏠 Menu' }]
+    );
+    return;
+  }
+  await set(s.id,{ state:'PRODUCTS', context:{ currentCategory:`🔍 "${q}"`, currentPage:1, searchResults:results.map((p:any)=>p.id) } });
+  const lines = results.map((p:any,i:number)=>`${EMOJI[i]||(i+1)+'.'} *${p.title}*\n    💰 ${kobo(p.price_kobo)}  _${p.category}_`);
+  await wa.sendText(s.phone,`🔍 *"${q}"* — ${results.length} result${results.length>1?'s':''}\n${'─'.repeat(24)}\n\n${lines.join('\n\n')}\n\n${'─'.repeat(24)}\n_Tap a number to view & add to cart_`);
+  await wa.sendButtons(s.phone, `Found ${results.length} result${results.length>1?'s':''} for *"${q}"*`, [{ id:'btn_search', title:'🔍 New Search' }, { id:'btn_browse', title:'🛍️ Browse' }, { id:'btn_menu', title:'🏠 Menu' }]);
   await track(s.phone,'search',{ q, results:results.length });
 }
 
