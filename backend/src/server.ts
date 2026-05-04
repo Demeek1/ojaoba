@@ -44,6 +44,32 @@ app.use('/api/whatsapp', whatsappRoutes);
 app.use('/api/admin',    adminRoutes);
 app.use('/api/products', productRoutes);
 
+// ── Shopify OAuth (one-time setup) ────────────────────────────────────────────
+app.get('/api/shopify/install', (_req, res) => {
+  const shop    = process.env.SHOPIFY_STORE_DOMAIN || 'kn1bqs-ae.myshopify.com';
+  const apiKey  = process.env.SHOPIFY_API_KEY || '9b95d110912f53ca4d37fa5ed12e04e5';
+  const redirect = `${process.env.BACKEND_URL}/api/shopify/callback`;
+  const scopes  = 'read_products,write_orders,read_inventory';
+  res.redirect(`https://${shop}/admin/oauth/authorize?client_id=${apiKey}&scope=${scopes}&redirect_uri=${redirect}&state=ojaoba2024`);
+});
+
+app.get('/api/shopify/callback', async (req, res) => {
+  const { code } = req.query;
+  if (!code) { res.status(400).send('Missing code'); return; }
+  try {
+    const axios = require('axios');
+    const shop  = process.env.SHOPIFY_STORE_DOMAIN || 'kn1bqs-ae.myshopify.com';
+    const { data } = await axios.post(`https://${shop}/admin/oauth/access_token`, {
+      client_id:     process.env.SHOPIFY_API_KEY     || '9b95d110912f53ca4d37fa5ed12e04e5',
+      client_secret: process.env.SHOPIFY_API_SECRET  || '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',
+      code,
+    });
+    const token = data.access_token;
+    console.log('✅ SHOPIFY ACCESS TOKEN:', token);
+    res.send(`<h2>✅ Shopify Connected!</h2><p>Your access token:</p><code style="font-size:14px;word-break:break-all">${token}</code><p>Copy this token and add it to Render as <b>SHOPIFY_ACCESS_TOKEN</b></p>`);
+  } catch(e: any) { res.status(500).send('OAuth failed: ' + e.message); }
+});
+
 // ── 404 ───────────────────────────────────────────────────────────────────────
 app.use((_req, res) => res.status(404).json({ error: 'Route not found' }));
 
