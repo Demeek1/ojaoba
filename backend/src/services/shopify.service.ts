@@ -15,9 +15,12 @@ export const syncProducts = async (): Promise<{ synced: number; categories: stri
   let synced = 0;
 
   do {
-    const params: any = { limit: 250, status: 'active', fields: 'id,title,body_html,product_type,tags,status,images,variants,handle' };
-    if (pageInfo) params.page_info = pageInfo;
-    const { data, headers } = await shopify().get('/products.json', { params });
+    const params: any = { limit: 250, status: 'active' };
+    if (pageInfo) { delete params.status; params.page_info = pageInfo; }
+    const { data, headers } = await shopify().get('/products.json', { params }).catch((e: any) => {
+      const msg = e.response?.data ? JSON.stringify(e.response.data) : e.message;
+      throw new Error(`Shopify API error: ${msg}`);
+    });
 
     for (const p of data.products || []) {
       const fv = p.variants?.[0];
