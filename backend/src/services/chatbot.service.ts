@@ -87,28 +87,51 @@ async function showCategories(s: any) {
   const cats = await shopify.getCategories();
   if (!cats.length) { await wa.sendText(s.phone,'😔 Our catalogue is updating. Please check back in a few minutes!\n\nType *menu* to go home.'); return; }
   await set(s.id, { state:'CATEGORIES', context:{} });
-  if (cats.length <= 10) {
-    await wa.sendList(s.phone,'🛍️ Browse by Category','Select a category to explore our fresh products.','Pick Category',[{ title:'Food Categories', rows: cats.map(c=>({ id:`cat_${c}`, title:c.slice(0,24), description:`Browse ${c}` })) }],`${cats.length} categories`);
-  } else {
-    await wa.sendText(s.phone, `🛍️ *Product Categories*\n\n${cats.map((c,i)=>`${EMOJI[i]||(i+1)+'.'} ${c}`).join('\n')}\n\nReply with a number or type the category name.\nOr type *search [product]* to find something specific.`);
+  // Split into sections of max 10 rows each — all tappable buttons
+  const sections: { title: string; rows: { id: string; title: string; description: string }[] }[] = [];
+  const chunkSize = 10;
+  for (let i = 0; i < cats.length; i += chunkSize) {
+    const chunk = cats.slice(i, i + chunkSize);
+    sections.push({
+      title: i === 0 ? '🛒 Shop by Category' : '📦 More Categories',
+      rows: chunk.map(c => ({ id: `cat_${c}`, title: c.slice(0, 24), description: `Tap to browse ${c.slice(0,30)}` })),
+    });
   }
+  await wa.sendList(s.phone, '🛍️ Product Categories', `We have ${cats.length} categories — tap any to start shopping!`, '🗂️ Pick Category', sections, 'Or type a product name to search');
   await track(s.phone,'categories');
 }
 
 async function showProducts(s: any, category: string, page=1) {
-  const { products, total, totalPages } = await shopify.getProductsByCategory(category, page, 6);
-  if (!products.length) { await wa.sendText(s.phone,`😔 No products found in *${category}* right now.\n\nType *categories* to browse other options.`); return; }
+  const { products, total, totalPages } = await shopify.getProductsByCategory(category, page, 9);
+  if (!products.length) {
+    await wa.sendButtons(s.phone, `😔 No products in *${category}* right now.`, [{ id:'btn_browse', title:'🛍️ Browse Categories' }, { id:'btn_search', title:'🔍 Search' }, { id:'btn_menu', title:'🏠 Menu' }]);
+    return;
+  }
   await set(s.id,{ state:'PRODUCTS', context:{ currentCategory:category, currentPage:page, totalPages, searchResults:products.map((p:any)=>p.id) } });
-  const lines = products.map((p:any,i:number)=>`${EMOJI[i]||(i+1)+'.'} *${p.title}*\n    💰 ${kobo(p.price_kobo)}${p.compare_price_kobo&&p.compare_price_kobo>p.price_kobo?' 🔖SALE':''}`);
-  const pageInfo = totalPages>1 ? `📄 Page ${page}/${totalPages}` : '';
-  await wa.sendText(s.phone,`🛍️ *${category}*  (${total} items)\n${'─'.repeat(24)}\n\n${lines.join('\n\n')}\n\n${'─'.repeat(24)}\n${pageInfo}\n\n_Tap a number to view & add to cart_`);
-  // Action buttons below the list
-  const btns: {id:string;title:string}[] = [];
-  if (page > 1) btns.push({ id:'btn_prev', title:'⬅️ Prev' });
-  if (page < totalPages) btns.push({ id:'btn_next', title:'➡️ Next' });
-  btns.push({ id:'btn_search', title:'🔍 Search' });
-  if (btns.length < 3) btns.push({ id:'btn_categories', title:'🗂️ Categories' });
-  await wa.sendButtons(s.phone, `Tap a *number* to view details & add to cart.\nOr *search* for something specific.`, btns.slice(0,3));
+
+  // Products as tappable list rows
+  const rows = products.map((p:any) => ({
+    id: `view_${p.id}`,
+    title: p.title.slice(0, 24),
+    description: `${kobo(p.price_kobo)}${p.compare_price_kobo && p.compare_price_kobo > p.price_kobo ? ' 🔖SALE' : ''}`,
+  }));
+  const navRows: {id:string;title:string;description:string}[] = [];
+  if (page > 1) navRows.push({ id:'btn_prev', title:'⬅️ Previous Page', description:`Back to page ${page-1}` });
+  if (page < totalPages) navRows.push({ id:'btn_next', title:'➡️ Next Page', description:`Page ${page+1} of ${totalPages}` });
+
+  const sections: { title: string; rows: typeof rows }[] = [
+    { title: `🛍️ ${category.slice(0,24)} — Page ${page}/${totalPages}`, rows },
+  ];
+  if (navRows.length) sections.push({ title: '📄 Navigation', rows: navRows });
+
+  await wa.sendList(
+    s.phone,
+    `🛍️ ${category.slice(0,40)}`,
+    `${total} products available. Tap any item to view details & add to cart.`,
+    '👀 View Products',
+    sections,
+    `Page ${page} of ${totalPages} · Type product name to search`
+  );
 }
 
 async function showProduct(s: any, product: any) {
@@ -318,13 +341,14 @@ export const processMessage = async (phone: string, rawText: string, messageId: 
       if (BACK.has(input)||input==='btn_back'||input==='btn_categories') return showCategories(s);
       if (input==='next'||input==='btn_next') return showProducts(s,s.context.currentCategory!,(s.context.currentPage||1)+1);
       if (input==='prev'||input==='previous'||input==='btn_prev') return showProducts(s,s.context.currentCategory!,Math.max(1,(s.context.currentPage||1)-1));
+      // Tappable list row — view product
+      if (input.startsWith('view_')) { const pid=input.slice(5); const p=await shopify.getProduct(pid); if(p) return showProduct(s,p); break; }
       const addMatch=input.match(/^add_(\d+)_(.+)$/);
       if (addMatch) return addToCart(s, addMatch[2], parseInt(addMatch[1])||1);
       const n=parseInt(input);
-      if (!isNaN(n)&&n>0) { const pid=(s.context.searchResults||[])[n-1]; if(pid){const p=await shopify.getProduct(pid);if(p)return showProduct(s,p);} await wa.sendText(s.phone,'⚠️ Invalid number. Reply with a number from the list.'); return; }
+      if (!isNaN(n)&&n>0) { const pid=(s.context.searchResults||[])[n-1]; if(pid){const p=await shopify.getProduct(pid);if(p)return showProduct(s,p);} }
       // Auto-search: typing any word searches instantly
       if (rawText.trim().length >= 2) return handleSearch(s, rawText.trim());
-      await wa.sendText(s.phone,'⚠️ Reply with a number to view a product, or just type a name to search.');
       break;
     }
 
