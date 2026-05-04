@@ -3,7 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 import db from '../db';
 
 const shopify = () => axios.create({
-  baseURL: `https://${process.env.SHOPIFY_STORE_DOMAIN}/admin/api/2024-01`,
+  baseURL: `https://${process.env.SHOPIFY_STORE_DOMAIN}/admin/api/2025-01`,
   headers: { 'X-Shopify-Access-Token': process.env.SHOPIFY_ACCESS_TOKEN!, 'Content-Type': 'application/json' },
   timeout: 15000,
 });
