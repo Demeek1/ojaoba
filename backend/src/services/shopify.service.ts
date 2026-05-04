@@ -29,7 +29,7 @@ export const syncProducts = async (): Promise<{ synced: number; categories: stri
         INSERT INTO products (id,shopify_id,title,description,category,tags,price_kobo,compare_price_kobo,image_url,available,inventory,variants,handle,shopify_url,updated_at)
         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,NOW())
         ON CONFLICT (shopify_id) DO UPDATE SET title=$3,description=$4,category=$5,tags=$6,price_kobo=$7,compare_price_kobo=$8,image_url=$9,available=$10,inventory=$11,variants=$12,updated_at=NOW()
-      `, [uuidv4(), String(p.id), p.title, (p.body_html||'').replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim().slice(0,500), p.product_type?.trim()||'General', p.tags?p.tags.split(',').map((t:string)=>t.trim()).filter(Boolean):[], toKobo(fv?.price), fv?.compare_at_price?toKobo(fv.compare_at_price):null, p.images?.[0]?.src||null, p.status==='active', fv?.inventory_quantity??null, JSON.stringify(variants), p.handle, `https://${process.env.SHOPIFY_STORE_DOMAIN}/products/${p.handle}`]);
+      `, [uuidv4(), String(p.id), p.title, (p.body_html||'').replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim().slice(0,500), p.product_type?.trim() || (p.tags ? p.tags.split(',').map((t:string)=>t.trim()).filter(Boolean)[0] : null) || 'General', p.tags?p.tags.split(',').map((t:string)=>t.trim()).filter(Boolean):[], toKobo(fv?.price), fv?.compare_at_price?toKobo(fv.compare_at_price):null, p.images?.[0]?.src||null, p.status==='active', fv?.inventory_quantity??null, JSON.stringify(variants), p.handle, `https://${process.env.SHOPIFY_STORE_DOMAIN}/products/${p.handle}`]);
       synced++;
     }
 

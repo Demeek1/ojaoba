@@ -255,7 +255,7 @@ export const processMessage = async (phone: string, rawText: string, messageId: 
       return mainMenu(s);
 
     case 'CATEGORIES': {
-      if (input.startsWith('cat_')) return showProducts(s, input.slice(4), 1);
+      if (input.startsWith('cat_')) { const slug=input.slice(4); const allCats=await shopify.getCategories(); const match=allCats.find(c=>c.toLowerCase()===slug)||slug; return showProducts(s,match,1); }
       const n=parseInt(input); if (!isNaN(n)&&n>0) { const cats=await shopify.getCategories(); if(cats[n-1]) return showProducts(s,cats[n-1],1); }
       if (rawText.toLowerCase().startsWith('search ')) return handleSearch(s, rawText.slice(7).trim());
       const cats=await shopify.getCategories(); const m=cats.find(c=>c.toLowerCase().includes(input)); if(m) return showProducts(s,m,1);
