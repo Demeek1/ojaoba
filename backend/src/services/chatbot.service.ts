@@ -172,19 +172,15 @@ async function showQtyPicker(s: any, productId: string) {
   const p = await shopify.getProduct(productId);
   if (!p) return;
   await set(s.id,{ state:'QTY_SELECT', context:{ ...s.context, currentProductId:productId } });
-  await wa.sendList(s.phone,
-    `🔢 How many *${p.title.slice(0,40)}*?`,
-    `Price per unit: ${kobo(p.price_kobo)}`,
-    'Pick Quantity',
-    [{ title:'Select quantity', rows:[
-      { id:`add_1_${productId}`, title:'➕ 1', description:`${kobo(p.price_kobo)}` },
-      { id:`add_2_${productId}`, title:'➕ 2', description:`${kobo(p.price_kobo*2)}` },
-      { id:`add_3_${productId}`, title:'➕ 3', description:`${kobo(p.price_kobo*3)}` },
-      { id:`add_4_${productId}`, title:'➕ 4', description:`${kobo(p.price_kobo*4)}` },
-      { id:`add_5_${productId}`, title:'➕ 5', description:`${kobo(p.price_kobo*5)}` },
-      { id:`add_6_${productId}`, title:'➕ 6', description:`${kobo(p.price_kobo*6)}` },
-    ]}],
-    'Tap to select how many you want'
+  // Use buttons (not list) — list headers reject markdown and can fail silently
+  await wa.sendButtons(
+    s.phone,
+    `🔢 *${p.title.slice(0,60)}*\n💰 ${kobo(p.price_kobo)} each\n\nTap a quantity or type any number (e.g. *7*):`,
+    [
+      { id:`add_1_${productId}`, title:'➕ 1' },
+      { id:`add_2_${productId}`, title:'➕ 2' },
+      { id:`add_3_${productId}`, title:'➕ 3' },
+    ]
   );
 }
 
@@ -392,6 +388,12 @@ export const processMessage = async (phone: string, rawText: string, messageId: 
       const addMatch=input.match(/^add_(\d+)_(.+)$/);
       if (addMatch) return addToCart(s, addMatch[2], parseInt(addMatch[1])||1);
       if (BACK.has(input)||input==='btn_back') { if(s.context.currentProductId){const p=await shopify.getProduct(s.context.currentProductId);if(p)return showProduct(s,p);} return showCategories(s); }
+      // Allow typing any number directly (e.g. "4", "5", "10")
+      const n = parseInt(rawText.trim());
+      if (!isNaN(n) && n > 0 && n <= 50 && s.context.currentProductId) {
+        return addToCart(s, s.context.currentProductId, n);
+      }
+      await wa.sendText(s.phone, '⚠️ Please tap a button or type a number (1–50) to choose quantity.');
       break;
     }
 
