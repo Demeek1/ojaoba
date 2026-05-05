@@ -87,17 +87,27 @@ async function showCategories(s: any) {
   const cats = await shopify.getCategories();
   if (!cats.length) { await wa.sendText(s.phone,'😔 Our catalogue is updating. Please check back in a few minutes!\n\nType *menu* to go home.'); return; }
   await set(s.id, { state:'CATEGORIES', context:{} });
-  // Split into sections of max 10 rows — use index-based IDs to avoid special char issues
-  const sections: { title: string; rows: { id: string; title: string; description: string }[] }[] = [];
-  const chunkSize = 10;
-  for (let i = 0; i < cats.length; i += chunkSize) {
-    const chunk = cats.slice(i, i + chunkSize);
-    sections.push({
-      title: i === 0 ? 'Shop by Category' : 'More Categories',
-      rows: chunk.map((c, j) => ({ id: `catidx_${i + j}`, title: c.slice(0, 24), description: `Tap to browse` })),
-    });
+
+  // WhatsApp list messages support a maximum of 10 rows total.
+  // If we have 10 or fewer categories, use a tappable list.
+  // If we have more, send a numbered text menu instead to avoid silent API failures.
+  if (cats.length <= 10) {
+    await wa.sendList(
+      s.phone,
+      'Product Categories',
+      `${cats.length} categories — tap any to start shopping!`,
+      'Pick Category',
+      [{ title: 'Shop by Category', rows: cats.map((c, i) => ({ id: `catidx_${i}`, title: c.slice(0, 24), description: 'Tap to browse' })) }],
+      'Or type a product name to search'
+    );
+  } else {
+    // More than 10 categories — send as numbered text
+    const lines = cats.slice(0, 20).map((c, i) => `${EMOJI[i] || `${i+1}.`} ${c}`);
+    await wa.sendText(
+      s.phone,
+      `🛍️ *Shop by Category*\n\n${lines.join('\n')}\n\nReply with the *number* to browse that category, or type a product name to search directly.`
+    );
   }
-  await wa.sendList(s.phone, 'Product Categories', `${cats.length} categories — tap any to start shopping!`, 'Pick Category', sections, 'Or type a product name to search');
   await track(s.phone,'categories');
 }
 
