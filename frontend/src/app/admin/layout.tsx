@@ -6,7 +6,7 @@ import api from '@/lib/api';
 import {
   LayoutDashboard, ShoppingCart, Package, MessageSquare,
   BarChart3, Megaphone, Settings, LogOut, Menu, X, ChevronRight,
-  ShoppingBag
+  ShoppingBag, Bot,
 } from 'lucide-react';
 
 const navItems = [
@@ -14,6 +14,7 @@ const navItems = [
   { href: '/admin/orders', label: 'Orders', icon: ShoppingCart },
   { href: '/admin/products', label: 'Products', icon: Package },
   { href: '/admin/sessions', label: 'WhatsApp', icon: MessageSquare },
+  { href: '/admin/ai-chat', label: 'AI Chat', icon: Bot },
   { href: '/admin/analytics', label: 'Analytics', icon: BarChart3 },
   { href: '/admin/broadcast', label: 'Broadcast', icon: Megaphone },
   { href: '/admin/settings', label: 'Settings', icon: Settings },
