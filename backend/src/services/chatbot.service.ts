@@ -172,14 +172,13 @@ async function showQtyPicker(s: any, productId: string) {
   const p = await shopify.getProduct(productId);
   if (!p) return;
   await set(s.id,{ state:'QTY_SELECT', context:{ ...s.context, currentProductId:productId } });
-  // Use buttons (not list) — list headers reject markdown and can fail silently
   await wa.sendButtons(
     s.phone,
-    `🔢 *${p.title.slice(0,60)}*\n💰 ${kobo(p.price_kobo)} each\n\nTap a quantity or type any number (e.g. *7*):`,
+    `🔢 *${p.title.slice(0,60)}*\n💰 ${kobo(p.price_kobo)} each\n\nHow many would you like?`,
     [
       { id:`add_1_${productId}`, title:'➕ 1' },
       { id:`add_2_${productId}`, title:'➕ 2' },
-      { id:`add_3_${productId}`, title:'➕ 3' },
+      { id:`qty_custom_${productId}`, title:'✏️ Other Qty' },
     ]
   );
 }
@@ -388,12 +387,30 @@ export const processMessage = async (phone: string, rawText: string, messageId: 
       const addMatch=input.match(/^add_(\d+)_(.+)$/);
       if (addMatch) return addToCart(s, addMatch[2], parseInt(addMatch[1])||1);
       if (BACK.has(input)||input==='btn_back') { if(s.context.currentProductId){const p=await shopify.getProduct(s.context.currentProductId);if(p)return showProduct(s,p);} return showCategories(s); }
+      // "Other Qty" button — prompt user to type a number
+      if (input.startsWith('qty_custom_')) {
+        const pid = input.slice(11);
+        await set(s.id,{ state:'QTY_TYPE', context:{ ...s.context, currentProductId: pid } });
+        const prod = await shopify.getProduct(pid);
+        await wa.sendText(s.phone, `✏️ *How many ${prod?.title || 'items'} do you want?*\n\nJust type any number (e.g. *4*, *10*, *20*) and we'll add them to your cart.`);
+        return;
+      }
       // Allow typing any number directly (e.g. "4", "5", "10")
       const n = parseInt(rawText.trim());
-      if (!isNaN(n) && n > 0 && n <= 50 && s.context.currentProductId) {
+      if (!isNaN(n) && n > 0 && n <= 100 && s.context.currentProductId) {
         return addToCart(s, s.context.currentProductId, n);
       }
-      await wa.sendText(s.phone, '⚠️ Please tap a button or type a number (1–50) to choose quantity.');
+      await wa.sendText(s.phone, '⚠️ Please tap a button or type a number to choose quantity.');
+      break;
+    }
+
+    case 'QTY_TYPE': {
+      const n = parseInt(rawText.trim());
+      if (!isNaN(n) && n > 0 && n <= 100 && s.context.currentProductId) {
+        return addToCart(s, s.context.currentProductId, n);
+      }
+      if (BACK.has(input)||input==='btn_back') { if(s.context.currentProductId){const p=await shopify.getProduct(s.context.currentProductId);if(p)return showQtyPicker(s,p.id);} break; }
+      await wa.sendText(s.phone, `⚠️ Please type a valid number between 1 and 100.\n\nExample: *5*`);
       break;
     }
 
