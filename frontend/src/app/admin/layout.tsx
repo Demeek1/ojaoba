@@ -133,13 +133,23 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       {/* Main */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Mobile Top Bar */}
-        <header className="md:hidden bg-white border-b px-4 py-3 flex items-center gap-3">
-          <button onClick={() => setSidebarOpen(true)} className="p-2 hover:bg-gray-100 rounded-lg">
-            <Menu className="w-5 h-5 text-gray-600" />
-          </button>
-          <span className="font-bold text-gray-900">
-            {navItems.find(n => isActive(n))?.label || 'Admin'}
-          </span>
+        <header className="md:hidden bg-white border-b border-gray-100 px-4 py-3 flex items-center justify-between sticky top-0 z-10">
+          <div className="flex items-center gap-3">
+            <button onClick={() => setSidebarOpen(true)} className="w-9 h-9 flex items-center justify-center hover:bg-gray-100 rounded-xl transition-colors">
+              <Menu className="w-5 h-5 text-gray-600" />
+            </button>
+            <div className="flex items-center gap-2">
+              <div className="w-7 h-7 bg-emerald-600 rounded-lg flex items-center justify-center shadow-sm shadow-emerald-200">
+                <ShoppingBag className="w-3.5 h-3.5 text-white" />
+              </div>
+              <span className="font-black text-gray-900 text-sm">
+                {navItems.find(n => isActive(n))?.label || 'Ojaoba'}
+              </span>
+            </div>
+          </div>
+          <Link href="/" target="_blank" className="text-xs font-semibold text-emerald-600 border border-emerald-200 px-3 py-1.5 rounded-xl">
+            Live Store
+          </Link>
         </header>
 
         {/* Page Content */}
