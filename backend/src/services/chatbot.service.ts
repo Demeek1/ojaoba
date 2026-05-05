@@ -83,31 +83,41 @@ async function showSearch(s: any) {
   await wa.sendText(s.phone, `🔍 *Search Ojaoba*\n\nJust type what you're looking for:\n\n_Examples:_\n• rice\n• palm oil\n• indomie\n• zobo drink\n\nType *menu* to go back.`);
 }
 
-async function showCategories(s: any) {
+async function showCategories(s: any, page = 1) {
   const cats = await shopify.getCategories();
   if (!cats.length) { await wa.sendText(s.phone,'😔 Our catalogue is updating. Please check back in a few minutes!\n\nType *menu* to go home.'); return; }
-  await set(s.id, { state:'CATEGORIES', context:{} });
 
-  // WhatsApp list messages support a maximum of 10 rows total.
-  // If we have 10 or fewer categories, use a tappable list.
-  // If we have more, send a numbered text menu instead to avoid silent API failures.
-  if (cats.length <= 10) {
-    await wa.sendList(
-      s.phone,
-      'Product Categories',
-      `${cats.length} categories — tap any to start shopping!`,
-      'Pick Category',
-      [{ title: 'Shop by Category', rows: cats.map((c, i) => ({ id: `catidx_${i}`, title: c.slice(0, 24), description: 'Tap to browse' })) }],
-      'Or type a product name to search'
-    );
-  } else {
-    // More than 10 categories — send as numbered text
-    const lines = cats.slice(0, 20).map((c, i) => `${EMOJI[i] || `${i+1}.`} ${c}`);
-    await wa.sendText(
-      s.phone,
-      `🛍️ *Shop by Category*\n\n${lines.join('\n')}\n\nReply with the *number* to browse that category, or type a product name to search directly.`
-    );
+  // WhatsApp list messages max 10 rows total. Reserve 1 row for navigation → 9 per page.
+  const PAGE_SIZE = 9;
+  const totalPages = Math.ceil(cats.length / PAGE_SIZE);
+  const start = (page - 1) * PAGE_SIZE;
+  const slice = cats.slice(start, start + PAGE_SIZE);
+
+  await set(s.id, { state:'CATEGORIES', context:{ catPage: page } });
+
+  const rows: { id: string; title: string; description: string }[] = slice.map((c, i) => ({
+    id: `catidx_${start + i}`,
+    title: c.slice(0, 24),
+    description: 'Tap to browse',
+  }));
+
+  // Add next/prev navigation row if needed (counts toward the 10-row limit)
+  if (totalPages > 1) {
+    if (page < totalPages) {
+      rows.push({ id: `catpage_${page + 1}`, title: `➡️ More categories`, description: `Page ${page + 1} of ${totalPages}` });
+    } else {
+      rows.push({ id: `catpage_1`, title: `⬅️ Back to start`, description: `Page 1 of ${totalPages}` });
+    }
   }
+
+  await wa.sendList(
+    s.phone,
+    'Product Categories',
+    `${cats.length} categories — tap any to shop!${totalPages > 1 ? ` (Page ${page}/${totalPages})` : ''}`,
+    'Pick Category',
+    [{ title: 'Shop by Category', rows }],
+    'Or type a product name to search directly'
+  );
   await track(s.phone,'categories');
 }
 
@@ -337,6 +347,8 @@ export const processMessage = async (phone: string, rawText: string, messageId: 
       break;
 
     case 'CATEGORIES': {
+      // Pagination navigation
+      if (input.startsWith('catpage_')) { const pg=parseInt(input.slice(8)); return showCategories(s, pg||1); }
       // Index-based tap from list
       if (input.startsWith('catidx_')) { const idx=parseInt(input.slice(7)); const allCats=await shopify.getCategories(); if(allCats[idx]) return showProducts(s,allCats[idx],1); break; }
       if (input.startsWith('cat_')) { const slug=input.slice(4); const allCats=await shopify.getCategories(); const match=allCats.find(c=>c.toLowerCase()===slug)||slug; return showProducts(s,match,1); }
