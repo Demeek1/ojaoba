@@ -122,35 +122,33 @@ async function showCategories(s: any, page = 1) {
 }
 
 async function showProducts(s: any, category: string, page=1) {
-  const { products, total, totalPages } = await shopify.getProductsByCategory(category, page, 9);
+  // Max 8 products per page so nav rows fit within WhatsApp's 10-row list limit
+  const PAGE_SIZE = 8;
+  const { products, total, totalPages } = await shopify.getProductsByCategory(category, page, PAGE_SIZE);
   if (!products.length) {
     await wa.sendButtons(s.phone, `😔 No products in *${category}* right now.`, [{ id:'btn_browse', title:'🛍️ Browse Categories' }, { id:'btn_search', title:'🔍 Search' }, { id:'btn_menu', title:'🏠 Menu' }]);
     return;
   }
   await set(s.id,{ state:'PRODUCTS', context:{ currentCategory:category, currentPage:page, totalPages, searchResults:products.map((p:any)=>p.id) } });
 
-  // Products as tappable list rows — use index IDs to avoid UUID special char issues
-  const rows = products.map((p:any, i:number) => ({
+  // Build rows (max 8 products + up to 2 nav rows = max 10 total — within WA limit)
+  const rows: {id:string;title:string;description:string}[] = products.map((p:any, i:number) => ({
     id: `pidx_${i}`,
     title: p.title.slice(0, 24),
-    description: `${kobo(p.price_kobo)}${p.compare_price_kobo && p.compare_price_kobo > p.price_kobo ? ' SALE' : ''}`,
+    description: `${kobo(p.price_kobo)}${p.compare_price_kobo && p.compare_price_kobo > p.price_kobo ? ' 🔥SALE' : ''}`,
   }));
-  const navRows: {id:string;title:string;description:string}[] = [];
-  if (page > 1) navRows.push({ id:'btn_prev', title:'⬅️ Previous Page', description:`Back to page ${page-1}` });
-  if (page < totalPages) navRows.push({ id:'btn_next', title:'➡️ Next Page', description:`Page ${page+1} of ${totalPages}` });
 
-  const sections: { title: string; rows: typeof rows }[] = [
-    { title: `🛍️ ${category.slice(0,24)} — Page ${page}/${totalPages}`, rows },
-  ];
-  if (navRows.length) sections.push({ title: '📄 Navigation', rows: navRows });
+  // Navigation rows go in the SAME section to avoid multi-section row count issues
+  if (page > 1) rows.push({ id:'btn_prev', title:'⬅️ Previous Page', description:`Back to page ${page-1}` });
+  if (page < totalPages) rows.push({ id:'btn_next', title:'➡️ Next Page', description:`Page ${page+1} of ${totalPages}` });
 
   await wa.sendList(
     s.phone,
-    `🛍️ ${category.slice(0,40)}`,
-    `${total} products available. Tap any item to view details & add to cart.`,
+    `${category.slice(0, 40)}`,
+    `${total} products · Tap any item to view & add to cart.`,
     '👀 View Products',
-    sections,
-    `Page ${page} of ${totalPages} · Type product name to search`
+    [{ title: `Page ${page} of ${totalPages}`, rows }],
+    `Type a product name to search`
   );
 }
 
