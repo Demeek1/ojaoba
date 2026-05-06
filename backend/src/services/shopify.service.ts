@@ -147,12 +147,24 @@ export const getAllProducts = async (page=1, size=20, category?: string) => {
 
 export const createShopifyOrder = async (order: { items: any[]; customerName: string; customerPhone: string; deliveryAddress: string; orderRef: string }): Promise<string> => {
   const names = order.customerName.trim().split(' ');
+
+  // Build note from any per-item prep instructions
+  const itemNotes = order.items.filter(i => i.note && i.note.trim()).map(i => `• ${i.title}: ${i.note}`);
+  const orderNote = [`WhatsApp Order | Ref: ${order.orderRef}`, ...(itemNotes.length ? ['', 'Prep Instructions:', ...itemNotes] : [])].join('\n');
+
   const { data } = await shopify().post('/orders.json', {
     order: {
-      line_items: order.items.map(i => ({ title: i.title, quantity: i.quantity, price: (i.priceKobo/100).toFixed(2), ...(i.variantId?{variant_id:parseInt(i.variantId)}:{product_id:parseInt(i.shopifyId)}) })),
+      line_items: order.items.map(i => ({
+        title: i.title,
+        quantity: i.quantity,
+        price: (i.priceKobo/100).toFixed(2),
+        ...(i.variantId ? { variant_id: parseInt(i.variantId) } : { product_id: parseInt(i.shopifyId) }),
+        // Show prep note as a line item property in Shopify
+        ...(i.note && i.note.trim() ? { properties: [{ name: 'Prep Instructions', value: i.note }] } : {}),
+      })),
       customer: { first_name: names[0]||'', last_name: names.slice(1).join(' ')||'', phone: order.customerPhone },
       shipping_address: { name: order.customerName, address1: order.deliveryAddress, phone: order.customerPhone, country: 'Nigeria', country_code: 'NG' },
-      note: `WhatsApp Order | Ref: ${order.orderRef}`,
+      note: orderNote,
       tags: 'whatsapp,ojaoba',
       financial_status: 'paid',
       send_receipt: false,

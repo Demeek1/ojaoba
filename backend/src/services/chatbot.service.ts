@@ -491,6 +491,40 @@ export const processMessage = async (phone: string, rawText: string, messageId: 
       break;
     }
 
+    case 'ITEM_NOTE_PROMPT': {
+      if (input==='btn_add_note'||input==='add instructions'||input==='add note'||input==='note') {
+        await set(s.id,{ state:'ITEM_NOTE' });
+        const title = s.context.lastAddedTitle || 'this item';
+        await wa.sendButtons(s.phone,
+          `📝 Type your prep instructions for *${title}*:\n\n_Examples:_\n• "Cut into small pieces"\n• "Blend finely"\n• "Remove bones"\n• "De-shell the snail"\n• "Slice thinly"\n• "Remove the skin"\n\nOr pick a quick option:`,
+          [{ id:'note_cut', title:'✂️ Cut/Slice' }, { id:'note_blend', title:'🔄 Blend/Grind' }, { id:'note_skip', title:'⏭️ Skip' }]
+        );
+        return;
+      }
+      if (input==='btn_cart') return showCart({...s});
+      if (input==='btn_browse') return showCategories(s);
+      // If they just type a note directly (skipping the prompt), save it
+      if (rawText.trim().length > 2 && !input.startsWith('btn_') && !MAIN.has(input) && !CONVERSATIONAL.has(input)) {
+        return saveItemNote(s, rawText.trim());
+      }
+      // Default — act like main menu
+      return mainMenu(s);
+    }
+
+    case 'ITEM_NOTE': {
+      if (input==='note_cut')   return saveItemNote(s, 'Cut/Sliced into pieces');
+      if (input==='note_blend') return saveItemNote(s, 'Blended/Ground');
+      if (input==='note_skip'||input==='skip'||input==='no'||input==='none') {
+        await set(s.id,{ state:'MAIN_MENU' });
+        await wa.sendButtons(s.phone,`✅ No problem! Item added to cart.`,
+          [{ id:'btn_cart', title:'🛒 View Cart' }, { id:'btn_browse', title:'🛍️ Keep Shopping' }, { id:'btn_menu', title:'🏠 Menu' }]);
+        return;
+      }
+      if (rawText.trim().length > 0) return saveItemNote(s, rawText.trim());
+      await wa.sendText(s.phone,'📝 Type your prep instructions or type *skip* to skip:');
+      break;
+    }
+
     case 'CHECKOUT_NAME':    return handleName(s, rawText);
     case 'CHECKOUT_ADDRESS': return handleAddress(s, rawText);
 
@@ -534,12 +568,28 @@ async function addToCart(s: any, productId: string, qty: number) {
   const cart = [...s.cart];
   const idx = cart.findIndex((i:any)=>i.productId===productId);
   if (idx>=0) cart[idx].quantity+=qty;
-  else cart.push({ productId:p.id, shopifyId:p.shopify_id, title:p.title, priceKobo:p.price_kobo, quantity:qty, imageUrl:p.image_url, variantId:null });
-  await set(s.id,{ cart });
+  else cart.push({ productId:p.id, shopifyId:p.shopify_id, title:p.title, priceKobo:p.price_kobo, quantity:qty, imageUrl:p.image_url, variantId:null, note:'' });
   const total = cartTotal(cart); const count = cartCount(cart);
-  await wa.sendButtons(s.phone,`✅ *${p.title}* × ${qty} added!\n\n🛒 ${count} item${count>1?'s':''} in cart — ${kobo(total)}`,
-    [{ id:'btn_cart', title:'🛒 View Cart' }, { id:'btn_browse', title:'🛍️ Keep Shopping' }, { id:'btn_menu', title:'🏠 Main Menu' }]);
+  // Save cart + enter note-prompt state so customer can add prep instructions
+  await set(s.id,{ cart, state:'ITEM_NOTE_PROMPT', context:{ ...s.context, lastAddedProductId:p.id, lastAddedTitle:p.title } });
+  await wa.sendButtons(s.phone,
+    `✅ *${p.title}* × ${qty} added!\n\n🛒 ${count} item${count>1?'s':''} in cart — ${kobo(total)}\n\n📝 Any special prep instructions for this item?\n_e.g. "cut into pieces", "blend", "remove bones"_`,
+    [{ id:'btn_add_note', title:'📝 Add Instructions' }, { id:'btn_cart', title:'🛒 View Cart' }, { id:'btn_browse', title:'🛍️ Keep Shopping' }]
+  );
   await track(s.phone,'add_to_cart',{ productId, qty });
+}
+
+async function saveItemNote(s: any, note: string) {
+  const productId = s.context.lastAddedProductId;
+  const cart = s.cart.map((item:any) =>
+    item.productId === productId ? { ...item, note: note.slice(0,200) } : item
+  );
+  const count = cartCount(cart);
+  await set(s.id,{ cart, state:'MAIN_MENU' });
+  await wa.sendButtons(s.phone,
+    `✅ Got it! Instructions saved:\n_"${note.slice(0,100)}"_ 📝\n\n🛒 ${count} item${count>1?'s':''} in cart`,
+    [{ id:'btn_cart', title:'🛒 View Cart' }, { id:'btn_browse', title:'🛍️ Keep Shopping' }, { id:'btn_menu', title:'🏠 Menu' }]
+  );
 }
 
 /**
