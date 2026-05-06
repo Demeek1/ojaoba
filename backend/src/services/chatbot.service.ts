@@ -17,7 +17,14 @@ const MAIN  = new Set(['menu','home','start','hi','hello','hey','0','back to men
 ]);
 const BACK  = new Set(['back','b','cancel','go back']);
 const HELP  = new Set(['help','support','human','agent','complaint','complain','problem','issue','wrong']);
-const ORDERS= new Set(['orders','my orders','track','order status','where is my order','my order']);
+const ORDERS= new Set(['orders','my orders','track','order status','where is my order','my order',
+  'order history','my order history','previous orders','past orders','my purchases',
+  'what i ordered','list of orders','show my orders','see my orders','check my order',
+  'track my order','delivery status','where is my package','has my order arrived',
+]);
+
+// Natural language patterns that clearly mean "show my orders" even in full sentences
+const ORDER_INTENT = /\b(order(ed|s)?|bought|purchased|delivery|deliveries|what (i|we) (ordered|bought)|list of (what|my)|previous (order|purchase)|order history)\b/i;
 const CART  = new Set(['cart','my cart','basket','view cart','see cart']);
 
 // Words that are NEVER product names — skip search for these
@@ -374,6 +381,8 @@ export const processMessage = async (phone: string, rawText: string, messageId: 
   if (input==='btn_browse'||input==='categories'||input==='browse') return showCategories(s);
   if (CART.has(input)||input==='btn_cart') return showCart({ ...s });
   if (ORDERS.has(input)||input==='btn_orders') return showOrders(s);
+  // Natural language order intent — catch sentences like "give me list of what i ordered before"
+  if (ORDER_INTENT.test(rawText) && !input.startsWith('btn_')) return showOrders(s);
   if (input==='search'||input==='btn_search'||input==='find') return showSearch(s);
   if (HELP.has(input)||input==='btn_support') {
     await set(s.id,{ state:'SUPPORT' });
