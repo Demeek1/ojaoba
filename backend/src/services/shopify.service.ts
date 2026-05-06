@@ -86,17 +86,48 @@ export const getProductsByCategory = async (category: string, page=1, size=8) =>
   return { products, total, totalPages: Math.ceil(total/size), page };
 };
 
+/**
+ * Rerank title results so the search term used as the PRODUCT TYPE comes first,
+ * and products where the term is a MODIFIER (no sugar, zero sugar, sugar-free) go last.
+ *
+ * e.g. "sugar" → ["Dangote Sugar 1kg", "Golden Penny Sugar"] first,
+ *                 ["Alpen No Sugar Cereals", "Coca-Cola Zero Sugar"] pushed to end
+ */
+function rerankByRelevance(rows: any[], q: string): any[] {
+  const lq = q.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  // Pattern: term is preceded by a negation word → NOT what the customer wants
+  const negationRegex = new RegExp(`\\b(no|zero|without|free|less|low|non|reduced|sugar.?free)\\s+${lq}`, 'i');
+
+  const positive: any[] = [];
+  const negative: any[] = [];
+
+  for (const row of rows) {
+    negationRegex.test(row.title) ? negative.push(row) : positive.push(row);
+  }
+
+  // Within positive results: sort by how early the term appears in the title
+  // "Dangote Sugar 1kg" → sugar at position 8 (PRODUCT is sugar)
+  // "Golden Penny Premium White Granulated Sugar 250g" → sugar at position 38 (still the product)
+  positive.sort((a: any, b: any) => {
+    const posA = a.title.toLowerCase().indexOf(lq);
+    const posB = b.title.toLowerCase().indexOf(lq);
+    return posA - posB;
+  });
+
+  return [...positive, ...negative];
+}
+
 export const searchProducts = async (q: string, limit=8) => {
   const term = `%${q}%`;
 
-  // 1️⃣ Title-only match (most accurate — "beans" should match "Beans" not "Palm Oil")
+  // 1️⃣ Title-only match — fetch extra rows so we can rerank before slicing
   const titleMatch = await db.query(
     `SELECT id,shopify_id,title,price_kobo,image_url,available,category,description
      FROM products WHERE available=true AND title ILIKE $1
      ORDER BY title LIMIT $2`,
-    [term, limit]
+    [term, limit * 3]  // fetch more so reranking has enough to work with
   );
-  if (titleMatch.rows.length > 0) return titleMatch.rows;
+  if (titleMatch.rows.length > 0) return rerankByRelevance(titleMatch.rows, q).slice(0, limit);
 
   // 2️⃣ Category match (e.g. searching "vegetables")
   const catMatch = await db.query(
