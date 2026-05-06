@@ -194,6 +194,64 @@ export async function adaezeSay(userMessage: string, context: string = ''): Prom
 }
 
 /**
+ * AI-powered search result filter.
+ * Given a customer's search query and a list of product results, asks Claude to
+ * identify which products are ACTUALLY what the customer wants vs. products that
+ * merely mention the word as a modifier ("no sugar", "sugar-free", "sugar acid").
+ *
+ * Returns the same array reordered: relevant products first, irrelevant pushed to end.
+ * Falls back to original order if AI is unavailable or times out.
+ */
+export async function filterSearchResults(results: any[], query: string): Promise<any[]> {
+  if (results.length <= 2) return results; // Not worth an API call for 1-2 results
+  const key = API_KEY();
+  if (!key) return results;
+
+  const productList = results.map((r, i) => `${i + 1}. ${r.title} [${r.category}]`).join('\n');
+
+  try {
+    const res = await axios.post(
+      'https://api.anthropic.com/v1/messages',
+      {
+        model: 'claude-haiku-4-5',
+        max_tokens: 100,
+        system: 'You are a Nigerian grocery store search assistant. Return ONLY a valid JSON array of 1-based product indices, nothing else. No explanation.',
+        messages: [{
+          role: 'user',
+          content: `A customer searched for: "${query}"
+
+Products found:
+${productList}
+
+Which of these are ACTUALLY "${query}" products (the customer wants to buy "${query}" itself)?
+Exclude products where "${query}" is just a descriptor (e.g. "no ${query}", "${query}-free", "${query} acid", "zero ${query}", or "${query}" as an ingredient/property of a completely different product like toothpaste or cereal).
+Return a JSON array of the relevant product numbers in order of relevance. Include ALL genuinely relevant ones.
+Example: [2, 5, 1]`,
+        }],
+      },
+      {
+        headers: {
+          'x-api-key': key,
+          'anthropic-version': '2023-06-01',
+          'content-type': 'application/json',
+        },
+        timeout: 4000, // tight timeout — don't slow down search
+      }
+    );
+
+    const text = res.data.content?.[0]?.text?.trim() || '';
+    const indices: number[] = JSON.parse(text.replace(/```json|```/g, '').trim());
+    if (!Array.isArray(indices) || indices.length === 0) return results;
+
+    const relevant   = indices.map(i => results[i - 1]).filter(Boolean);
+    const irrelevant = results.filter((_, i) => !indices.includes(i + 1));
+    return [...relevant, ...irrelevant];
+  } catch {
+    return results; // graceful fallback
+  }
+}
+
+/**
  * Transcribe a WhatsApp voice note using Groq Whisper (FREE).
  * Returns the transcribed text, or null if unavailable.
  */

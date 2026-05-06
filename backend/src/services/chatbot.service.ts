@@ -663,6 +663,12 @@ async function handleSearch(s: any, rawQ: string) {
     }
   }
 
+  // AI relevance filter — remove/deprioritize results that only match because the word
+  // appears as a modifier (e.g. "sugar-free cereal" when customer wants actual sugar)
+  if (results.length > 2) {
+    results = await ai.filterSearchResults(results, q);
+  }
+
   if (!results.length) {
     const reply = await ai.adaezeSay(`Customer searched for "${rawQ}" but nothing was found in the store.`, 'You are Adaeze at Ojaoba Food Market. The product was not found. Apologize warmly and suggest they try browsing categories or searching differently. Keep it under 2 sentences.');
     await wa.sendButtons(s.phone,
