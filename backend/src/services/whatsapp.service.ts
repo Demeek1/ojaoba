@@ -64,6 +64,9 @@ export const parseWebhook = (body: any): IncomingMsg | null => {
       base.mediaId = media?.id || '';
       base.mediaType = media?.mime_type || 'image/jpeg';
       base.text = media?.caption?.trim() || '';
+    } else if (msg.type === 'audio') {
+      base.mediaId = msg.audio?.id || '';
+      base.mediaType = 'audio/ogg';
     } else base.text = msg.type;
     return base;
   } catch { return null; }

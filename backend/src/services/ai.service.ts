@@ -1,8 +1,16 @@
 /**
  * Adaeze AI — Ojaoba's Nigerian customer service intelligence layer
- * Handles: natural language, typo correction, shopping list parsing, image recognition
+ * Handles: natural language, typo correction, shopping list parsing, image recognition, voice notes
  */
 import axios from 'axios';
+import Groq from 'groq-sdk';
+
+// Groq is FREE — used for voice note transcription via Whisper
+const groqClient = () => {
+  const key = process.env.GROQ_API_KEY;
+  if (!key) return null;
+  return new Groq({ apiKey: key });
+};
 
 const API_KEY = () => process.env.ANTHROPIC_API_KEY || '';
 
@@ -156,6 +164,40 @@ export async function identifyProductFromImage(mediaUrl: string, mediaType: stri
  */
 export async function adaezeSay(userMessage: string, context: string = ''): Promise<string | null> {
   return callClaude(`${context ? `Context: ${context}\n\n` : ''}Customer says: "${userMessage}"`);
+}
+
+/**
+ * Transcribe a WhatsApp voice note using Groq Whisper (FREE).
+ * Returns the transcribed text, or null if unavailable.
+ */
+export async function transcribeVoiceNote(mediaUrl: string): Promise<string | null> {
+  const groq = groqClient();
+  if (!groq) return null;
+  try {
+    // Download the audio from WhatsApp
+    const audioRes = await axios.get(mediaUrl, {
+      responseType: 'arraybuffer',
+      headers: { Authorization: `Bearer ${process.env.WA_ACCESS_TOKEN}` },
+      timeout: 20000,
+    });
+
+    // Convert to a File-like object that Groq SDK accepts
+    const buffer = Buffer.from(audioRes.data);
+    const blob = new Blob([buffer], { type: 'audio/ogg' });
+    const file = new File([blob], 'voice.ogg', { type: 'audio/ogg' });
+
+    const transcription = await groq.audio.transcriptions.create({
+      file,
+      model: 'whisper-large-v3-turbo', // fastest free model
+      language: 'en',
+      prompt: 'Nigerian food market customer service conversation. Products include rice, palm oil, indomie, tomatoes, pepper, yam, egusi, stockfish.',
+    });
+
+    return transcription.text?.trim() || null;
+  } catch (e: any) {
+    console.error('[Voice transcription]', e.message);
+    return null;
+  }
 }
 
 /**

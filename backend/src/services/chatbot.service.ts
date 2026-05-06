@@ -311,6 +311,23 @@ export const processMessage = async (phone: string, rawText: string, messageId: 
   const input = (interactiveId||rawText||'').toLowerCase().trim();
   await track(phone,'message',{ state:s.state, input:input.slice(0,40) });
 
+  // ── VOICE NOTE: customer sends a voice message ────────────────────────────────
+  if (msgType === 'audio' && mediaId) {
+    await wa.sendText(s.phone, `🎤 Got your voice note! One second while I listen... 👂`);
+    const mediaUrl = await wa.getMediaUrl(mediaId);
+    if (mediaUrl) {
+      const transcript = await ai.transcribeVoiceNote(mediaUrl);
+      if (transcript) {
+        console.log('[Voice] Transcribed:', transcript);
+        await wa.sendText(s.phone, `I heard: _"${transcript}"_\n\nLet me help you with that! 😊`);
+        // Process the transcribed text just like a normal message
+        return processMessage(phone, transcript, messageId, 'text', undefined, profileName);
+      }
+    }
+    await wa.sendText(s.phone, `Sorry, I couldn't hear that clearly 😅 Could you type it instead? I'll sort it out quickly for you!`);
+    return;
+  }
+
   // ── IMAGE: customer sends a photo of a product or shopping list ───────────────
   if ((msgType === 'image' || msgType === 'document') && mediaId) {
     await wa.sendText(s.phone, `📸 Got your image! Give me a second to check what that is... 🔍`);
