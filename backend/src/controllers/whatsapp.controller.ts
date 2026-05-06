@@ -328,6 +328,27 @@ export const getAnalytics = async (_req: Request, res: Response) => {
   } catch(e: any) { res.status(500).json({ error: e.message }); }
 };
 
+/** GET /admin/sessions/:phone/messages */
+export const getSessionMessages = async (req: Request, res: Response) => {
+  try {
+    const { rows } = await db.query(
+      `SELECT id, direction, content, msg_type, created_at FROM wa_messages WHERE phone=$1 ORDER BY created_at ASC LIMIT 200`,
+      [req.params.phone]
+    );
+    res.json({ messages: rows });
+  } catch(e: any) { res.status(500).json({ error: e.message }); }
+};
+
+/** POST /admin/sessions/:phone/reply */
+export const adminReply = async (req: Request, res: Response) => {
+  try {
+    const { message } = req.body;
+    if (!message?.trim()) { res.status(400).json({ error: 'message required' }); return; }
+    await wa.sendText(req.params.phone, message.trim()); // sendText auto-logs outbound
+    res.json({ ok: true });
+  } catch(e: any) { res.status(500).json({ error: e.message }); }
+};
+
 export const getSettings = async (_req: Request, res: Response) => {
   try {
     const { rows } = await db.query(`SELECT key, value FROM settings`);

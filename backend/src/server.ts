@@ -195,6 +195,19 @@ async function setupDatabase() {
       process.env.SUPPORT_EMAIL     || 'support@ojaoba.com',
     ]);
 
+    // WhatsApp message history (for admin live chat view)
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS wa_messages (
+        id         TEXT PRIMARY KEY,
+        phone      TEXT NOT NULL,
+        direction  TEXT NOT NULL,
+        content    TEXT NOT NULL,
+        msg_type   TEXT DEFAULT 'text',
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      )
+    `);
+    await db.query(`CREATE INDEX IF NOT EXISTS idx_wa_messages_phone ON wa_messages(phone, created_at DESC)`);
+
     // Seed default admin (from env)
     const bcrypt = require('bcryptjs');
     const adminEmail = process.env.ADMIN_EMAIL || 'admin@ojaoba.com';

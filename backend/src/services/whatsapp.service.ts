@@ -1,8 +1,17 @@
 import axios from 'axios';
+import db from '../db';
+import { v4 as uuidv4 } from 'uuid';
 
 const WA_BASE = 'https://graph.facebook.com/v20.0';
 const headers = () => ({ Authorization: `Bearer ${process.env.WA_ACCESS_TOKEN}`, 'Content-Type': 'application/json' });
 const pid = () => process.env.WA_PHONE_NUMBER_ID!;
+
+async function logOutbound(phone: string, content: string) {
+  await db.query(
+    `INSERT INTO wa_messages (id,phone,direction,content,msg_type) VALUES ($1,$2,'outbound',$3,'text')`,
+    [uuidv4(), phone, content.slice(0, 2000)]
+  ).catch(() => {});
+}
 
 async function send(payload: object) {
   try {
@@ -12,10 +21,13 @@ async function send(payload: object) {
   }
 }
 
-export const sendText = (to: string, text: string) =>
-  send({ messaging_product: 'whatsapp', to, type: 'text', text: { body: text, preview_url: false } });
+export const sendText = async (to: string, text: string) => {
+  await logOutbound(to, text);
+  return send({ messaging_product: 'whatsapp', to, type: 'text', text: { body: text, preview_url: false } });
+};
 
-export const sendButtons = (to: string, body: string, buttons: { id: string; title: string }[], header?: string, footer?: string, imageUrl?: string) => {
+export const sendButtons = async (to: string, body: string, buttons: { id: string; title: string }[], header?: string, footer?: string, imageUrl?: string) => {
+  await logOutbound(to, body);
   const interactive: any = {
     type: 'button', body: { text: body },
     action: { buttons: buttons.slice(0,3).map(b => ({ type: 'reply', reply: { id: b.id, title: b.title.slice(0,20) } })) },
@@ -26,7 +38,8 @@ export const sendButtons = (to: string, body: string, buttons: { id: string; tit
   return send({ messaging_product: 'whatsapp', to, type: 'interactive', interactive });
 };
 
-export const sendList = (to: string, header: string, body: string, btnLabel: string, sections: { title: string; rows: { id: string; title: string; description?: string }[] }[], footer?: string) => {
+export const sendList = async (to: string, header: string, body: string, btnLabel: string, sections: { title: string; rows: { id: string; title: string; description?: string }[] }[], footer?: string) => {
+  await logOutbound(to, body);
   const interactive: any = {
     type: 'list',
     header: { type: 'text', text: header.slice(0,60) },

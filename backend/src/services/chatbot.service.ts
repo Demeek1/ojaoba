@@ -65,6 +65,14 @@ async function track(phone: string, event: string, meta: any={}) {
   await db.query(`INSERT INTO analytics (id,phone,event,metadata) VALUES ($1,$2,$3,$4)`, [uuidv4(),phone,event,JSON.stringify(meta)]).catch(()=>{});
 }
 
+export async function logMsg(phone: string, direction: 'inbound'|'outbound', content: string, msgType = 'text') {
+  if (!content || !content.trim()) return;
+  await db.query(
+    `INSERT INTO wa_messages (id,phone,direction,content,msg_type) VALUES ($1,$2,$3,$4,$5)`,
+    [uuidv4(), phone, direction, content.slice(0, 2000), msgType]
+  ).catch(()=>{});
+}
+
 const cartTotal = (cart: any[]) => cart.reduce((s,i)=>s+i.priceKobo*i.quantity,0);
 const cartCount = (cart: any[]) => cart.reduce((s,i)=>s+i.quantity,0);
 
@@ -331,6 +339,10 @@ export const processMessage = async (phone: string, rawText: string, messageId: 
   wa.markRead(messageId);
   const input = (interactiveId||rawText||'').toLowerCase().trim();
   await track(phone,'message',{ state:s.state, input:input.slice(0,40) });
+
+  // Log every inbound message for the admin live chat view
+  const inboundContent = rawText?.trim() || (msgType === 'audio' ? '🎤 Voice note' : msgType === 'image' ? '📷 Image' : msgType);
+  await logMsg(phone, 'inbound', inboundContent, msgType);
 
   // ── VOICE NOTE: customer sends a voice message ────────────────────────────────
   if (msgType === 'audio' && mediaId) {
