@@ -8,11 +8,25 @@ import * as ai from './ai.service';
 // ── Helpers ───────────────────────────────────────────────────────────────────
 const kobo = (n: number | bigint) => `₦${(Number(n)/100).toLocaleString('en-NG',{minimumFractionDigits:0})}`;
 const EMOJI = ['1️⃣','2️⃣','3️⃣','4️⃣','5️⃣','6️⃣','7️⃣','8️⃣','9️⃣','🔟'];
-const MAIN  = new Set(['menu','home','start','hi','hello','hey','0','back to menu','main menu']);
+const MAIN  = new Set(['menu','home','start','hi','hello','hey','0','back to menu','main menu',
+  'good day','good morning','good afternoon','good evening','good night',
+  'hi there','hiya','howdy','yo','sup','oya','how far','how now','na me',
+  'good day o','morning','afternoon','evening','hello there','how are you',
+  'how are you doing','i am fine','fine thank you','how body','how na',
+  'oya begin','let us go','let\'s go','start shopping','i want to shop',
+]);
 const BACK  = new Set(['back','b','cancel','go back']);
-const HELP  = new Set(['help','support','human','agent']);
-const ORDERS= new Set(['orders','my orders','track','order status']);
-const CART  = new Set(['cart','my cart','basket']);
+const HELP  = new Set(['help','support','human','agent','complaint','complain','problem','issue','wrong']);
+const ORDERS= new Set(['orders','my orders','track','order status','where is my order','my order']);
+const CART  = new Set(['cart','my cart','basket','view cart','see cart']);
+
+// Words that are NEVER product names — skip search for these
+const CONVERSATIONAL = new Set([
+  'ok','okay','alright','sure','thanks','thank you','thanks o','tnx','thnks',
+  'no','yes','nope','yep','yea','yeah','nah','oya','abeg','please','pls',
+  'nice','great','good','wow','hm','hmm','lol','ehen','chai','ah','aha',
+  'wait','one sec','hold on','coming','be right back',
+]);
 
 // ── Session ───────────────────────────────────────────────────────────────────
 async function getSession(phone: string, name?: string) {
@@ -375,8 +389,10 @@ export const processMessage = async (phone: string, rawText: string, messageId: 
       if (input==='btn_cart'  ||input==='3') return showCart(s);
       if (input==='btn_orders'||input==='4') return showOrders(s);
       if (input==='5') { await set(s.id,{ state:'SUPPORT' }); const sp=await getSetting('support_phone','+234 800 000 0000'); await wa.sendText(s.phone,`🤝 *Ojaoba Support*\n\nA support agent will respond to you shortly.\n\n📞 Call: ${sp}\n📧 Email: support@ojaoba.com\n\nType your message and we'll get back to you.\nType *menu* to continue shopping.`); return; }
-      // Auto-search: if user just types a product name from main menu
-      if (rawText.trim().length >= 2 && !input.startsWith('btn_')) return handleSearch(s, rawText.trim());
+      // Smart fallback — only search if it looks like a product, not a greeting/chat
+      if (rawText.trim().length >= 2 && !input.startsWith('btn_') && !CONVERSATIONAL.has(input)) {
+        return smartFallback(s, rawText.trim());
+      }
       return mainMenu(s);
 
     case 'SEARCH_INPUT':
@@ -515,6 +531,37 @@ async function addToCart(s: any, productId: string, qty: number) {
   await wa.sendButtons(s.phone,`✅ *${p.title}* × ${qty} added!\n\n🛒 ${count} item${count>1?'s':''} in cart — ${kobo(total)}`,
     [{ id:'btn_cart', title:'🛒 View Cart' }, { id:'btn_browse', title:'🛍️ Keep Shopping' }, { id:'btn_menu', title:'🏠 Main Menu' }]);
   await track(s.phone,'add_to_cart',{ productId, qty });
+}
+
+/**
+ * Smart fallback — uses AI to decide if this is a product search or conversation.
+ * If conversational (complaint, compliment, random chat), Adaeze responds warmly.
+ * If it looks like a product, search for it.
+ */
+async function smartFallback(s: any, text: string) {
+  // First try a direct DB search — if we find products, just show them
+  const quickResults = await shopify.searchProducts(text, 1);
+  if (quickResults.length) {
+    return handleSearch(s, text);
+  }
+
+  // Ask AI to classify: is this a product search or a conversation?
+  const classification = await ai.adaezeSay(
+    text,
+    `You are Adaeze at Ojaoba Food Market WhatsApp bot. A customer sent: "${text}"\n\nIs this:\nA) A product they want to buy/search for\nB) A greeting, complaint, compliment, or general conversation\n\nIf A: reply with just the word SEARCH\nIf B: respond naturally as Adaeze in 1-2 warm sentences, then end with "Type *menu* to start shopping! 🛍️"`
+  );
+
+  if (!classification) {
+    // No AI available — just show main menu for conversational inputs
+    return mainMenu(s);
+  }
+
+  if (classification.trim().toUpperCase() === 'SEARCH') {
+    return handleSearch(s, text);
+  }
+
+  // It's a conversation — send Adaeze's warm reply
+  await wa.sendText(s.phone, classification);
 }
 
 async function handleSearch(s: any, rawQ: string) {
