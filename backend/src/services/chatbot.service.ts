@@ -549,6 +549,8 @@ export const processMessage = async (phone: string, rawText: string, messageId: 
     case 'ORDER_TRACKING': {
       const n=parseInt(input);
       if (!isNaN(n)&&n>0) { const { rows }=await db.query(`SELECT * FROM orders WHERE phone=$1 ORDER BY created_at DESC LIMIT 5`,[s.phone]); const o=rows[n-1]; if(o) return showOrderDetail(s,o); await wa.sendText(s.phone,'⚠️ Invalid order number.'); return; }
+      // Don't re-show orders if they're asking for a product — break out of order tracking state
+      if (rawText.trim().length >= 2 && !input.startsWith('btn_')) return smartFallback(s, rawText.trim());
       return showOrders(s);
     }
 
@@ -598,10 +600,13 @@ async function saveItemNote(s: any, note: string) {
  * If it looks like a product, search for it.
  */
 async function smartFallback(s: any, text: string) {
+  // Strip "i need / i want / get me" prefixes first
+  const cleaned = extractProductQuery(text);
+
   // First try a direct DB search — if we find products, just show them
-  const quickResults = await shopify.searchProducts(text, 1);
+  const quickResults = await shopify.searchProducts(cleaned, 1);
   if (quickResults.length) {
-    return handleSearch(s, text);
+    return handleSearch(s, text); // handleSearch will clean internally
   }
 
   // Ask AI to classify: is this a product search or a conversation?
@@ -623,11 +628,27 @@ async function smartFallback(s: any, text: string) {
   await wa.sendText(s.phone, classification);
 }
 
+/**
+ * Strip natural language prefixes so "i need sugar" → "sugar",
+ * "i said i need sugar like two sugars" → "sugar" (AI handles quantities separately)
+ */
+function extractProductQuery(text: string): string {
+  return text
+    .replace(/^(i said\s+)?/i, '')
+    .replace(/^(i need|i want|get me|buy me|send me|bring me|give me|abeg give me|abeg send|pls send|please send|please get|i dey find|i dey need|i wan buy)\s+/i, '')
+    .replace(/\s+like\s+(two|three|four|five|\d+)\s+\w+\s*$/i, '') // strip trailing "like two sugars"
+    .trim();
+}
+
 async function handleSearch(s: any, rawQ: string) {
   if (!rawQ||rawQ.length<2) { await wa.sendText(s.phone,'⚠️ Type at least 2 characters to search.\n\nExample: *rice*'); return; }
 
+  // Strip "i need / i want / get me" prefixes before searching
+  const cleanedQ = extractProductQuery(rawQ);
+  if (!cleanedQ || cleanedQ.length < 2) { await wa.sendText(s.phone,'⚠️ Type at least 2 characters to search.\n\nExample: *rice*'); return; }
+
   // AI typo correction — try raw first, then corrected if no results
-  let q = rawQ;
+  let q = cleanedQ;
   let results = await shopify.searchProducts(q, 8);
 
   if (!results.length) {
