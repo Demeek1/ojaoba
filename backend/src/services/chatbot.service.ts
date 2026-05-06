@@ -593,9 +593,34 @@ async function handleSearch(s: any, rawQ: string) {
   }
 
   await set(s.id,{ state:'PRODUCTS', context:{ currentCategory:`🔍 "${q}"`, currentPage:1, searchResults:results.map((p:any)=>p.id) } });
-  const lines = results.map((p:any,i:number)=>`${EMOJI[i]||(i+1)+'.'} *${p.title}*\n    💰 ${kobo(p.price_kobo)}  _${p.category}_`);
-  await wa.sendText(s.phone,`🔍 *"${q}"* — ${results.length} result${results.length>1?'s':''}\n${'─'.repeat(24)}\n\n${lines.join('\n\n')}\n\n${'─'.repeat(24)}\n_Tap a number to view & add to cart_`);
-  await wa.sendButtons(s.phone, `Found ${results.length} result${results.length>1?'s':''} for *"${q}"*`, [{ id:'btn_search', title:'🔍 New Search' }, { id:'btn_browse', title:'🛍️ Browse' }, { id:'btn_menu', title:'🏠 Menu' }]);
+
+  // If only 1 result — show product card with image immediately
+  if (results.length === 1) {
+    return showProduct(s, results[0]);
+  }
+
+  // Multiple results — send each with its image (up to 4), then action buttons
+  const preview = results.slice(0, 4);
+  for (let i = 0; i < preview.length; i++) {
+    const p = preview[i];
+    const caption = `${EMOJI[i]||`${i+1}.`} *${p.title}*\n💰 ${kobo(p.price_kobo)}  •  _${p.category}_`;
+    if (p.image_url) {
+      await wa.sendImage(s.phone, p.image_url, caption);
+    } else {
+      await wa.sendText(s.phone, caption);
+    }
+  }
+
+  if (results.length > 4) {
+    const remaining = results.slice(4);
+    const lines = remaining.map((p:any,i:number)=>`${EMOJI[i+4]||(i+5)+'.'} *${p.title}* — ${kobo(p.price_kobo)}`);
+    await wa.sendText(s.phone, lines.join('\n'));
+  }
+
+  await wa.sendButtons(s.phone,
+    `Found *${results.length}* result${results.length>1?'s':''} for *"${q}"* 👆\nTap a number above to view & add to cart!`,
+    [{ id:'btn_search', title:'🔍 New Search' }, { id:'btn_browse', title:'🛍️ Browse' }, { id:'btn_menu', title:'🏠 Menu' }]
+  );
   await track(s.phone,'search',{ q, results:results.length });
 }
 

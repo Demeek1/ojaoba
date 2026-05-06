@@ -115,11 +115,38 @@ export async function interpretSearch(raw: string): Promise<string> {
   const result = await callClaude(
     `A Nigerian customer typed this product search: "${raw}"
 
-    This might have spelling mistakes or be in pidgin/informal language.
-    Return ONLY the corrected standard English product name to search for.
-    Examples: "pal oil" → "palm oil", "indomii" → "indomie", "tomatoe past" → "tomato paste", "ogi" → "ogi", "semovita" → "semovita"
-    Just return the corrected search term, nothing else.`,
-    'You are a Nigerian grocery search assistant. Correct misspelled product names. Return only the corrected term.'
+This might have spelling mistakes, repeated letters, or be in pidgin/informal Nigerian language.
+Return ONLY the corrected standard product name to search for. Nothing else — just the product name.
+
+IMPORTANT Nigerian food/product knowledge:
+- "pomo", "ponmo", "pomooo", "ponnmo", "ponmoo" → "ponmo" (cow skin, popular Nigerian meat)
+- "kpomo", "kpomoo" → "ponmo"
+- "pal oil", "palm ole", "pam oil" → "palm oil"
+- "indomii", "indomie noodle", "noodle" → "indomie"
+- "tomatoe", "tomatos", "tomatto" → "tomato"
+- "egusii", "egushi", "eguzi" → "egusi"
+- "stockfis", "stock fish" → "stockfish"
+- "semovita", "semo" → "semovita"
+- "garri", "gari" → "garri"
+- "eba" → "garri"
+- "ogiri", "ogri" → "ogiri"
+- "crayfish", "crayfis", "crafish" → "crayfish"
+- "titus", "titu" → "titus fish"
+- "croaker", "croaka" → "croaker fish"
+- "frozen chiken", "frz chicken" → "frozen chicken"
+- "turky", "turky tail" → "turkey"
+- "dano milk", "peak milk", "cowbell" → exact brand name
+- "magi", "maggie", "magi cube" → "maggi"
+- "knorr", "knor" → "knorr"
+- "groundnut oil", "groundnut ole" → "groundnut oil"
+- "vegetable oil", "veg oil" → "vegetable oil"
+- "zobo", "soboo", "sobo" → "zobo"
+- "akara", "akra" → "akara"
+- "moinmoin", "moi moi", "moimoi" → "moi moi"
+- "eba", "ieba" → "garri"
+
+Just return the corrected search term, nothing else.`,
+    'You are a Nigerian food market search assistant. You know all Nigerian foods, meats, and groceries. Correct misspelled product names. Return ONLY the corrected term.'
   );
   return result || raw;
 }
