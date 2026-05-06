@@ -72,7 +72,7 @@ export default function WhatsAppSessionsPage() {
 
   const fetchSessions = async (p = page) => {
     try {
-      const res = await api.get<SessionsResponse>(`/admin/sessions?page=${p}`);
+      const res = await api.get<SessionsResponse>(`/whatsapp/admin/sessions?page=${p}`);
       setData(res.data);
       const now = Date.now();
       const active = res.data.sessions.filter(
@@ -377,7 +377,7 @@ function CustomerOrders({ phone }: { phone: string }) {
 
   useEffect(() => {
     setLoading(true);
-    api.get(`/admin/orders?search=${encodeURIComponent(phone)}&limit=5`)
+    api.get(`/whatsapp/admin/orders?search=${encodeURIComponent(phone)}&limit=5`)
       .then(r => setOrders(r.data.orders || []))
       .catch(() => {})
       .finally(() => setLoading(false));
