@@ -87,8 +87,44 @@ export const getProductsByCategory = async (category: string, page=1, size=8) =>
 };
 
 export const searchProducts = async (q: string, limit=8) => {
-  const { rows } = await db.query(`SELECT id,shopify_id,title,price_kobo,image_url,available,category,description FROM products WHERE available=true AND (title ILIKE $1 OR description ILIKE $1 OR category ILIKE $1) ORDER BY title LIMIT $2`, [`%${q}%`, limit]);
-  return rows;
+  const term = `%${q}%`;
+
+  // 1️⃣ Title-only match (most accurate — "beans" should match "Beans" not "Palm Oil")
+  const titleMatch = await db.query(
+    `SELECT id,shopify_id,title,price_kobo,image_url,available,category,description
+     FROM products WHERE available=true AND title ILIKE $1
+     ORDER BY title LIMIT $2`,
+    [term, limit]
+  );
+  if (titleMatch.rows.length > 0) return titleMatch.rows;
+
+  // 2️⃣ Category match (e.g. searching "vegetables")
+  const catMatch = await db.query(
+    `SELECT id,shopify_id,title,price_kobo,image_url,available,category,description
+     FROM products WHERE available=true AND category ILIKE $1
+     ORDER BY title LIMIT $2`,
+    [term, limit]
+  );
+  if (catMatch.rows.length > 0) return catMatch.rows;
+
+  // 3️⃣ Tags match
+  const tagMatch = await db.query(
+    `SELECT id,shopify_id,title,price_kobo,image_url,available,category,description
+     FROM products WHERE available=true AND tags::text ILIKE $1
+     ORDER BY title LIMIT $2`,
+    [term, limit]
+  );
+  if (tagMatch.rows.length > 0) return tagMatch.rows;
+
+  // 4️⃣ Last resort: description (but NEVER return if title/category/tags matched something)
+  const descMatch = await db.query(
+    `SELECT id,shopify_id,title,price_kobo,image_url,available,category,description
+     FROM products WHERE available=true AND description ILIKE $1
+     AND title NOT ILIKE $1
+     ORDER BY title LIMIT $2`,
+    [term, limit]
+  );
+  return descMatch.rows;
 };
 
 export const getProduct = async (id: string) => {
