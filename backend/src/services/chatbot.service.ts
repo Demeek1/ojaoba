@@ -3,6 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 import db from '../db';
 import * as wa from './whatsapp.service';
 import * as shopify from './shopify.service';
+import * as ai from './ai.service';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 const kobo = (n: number | bigint) => `₦${(Number(n)/100).toLocaleString('en-NG',{minimumFractionDigits:0})}`;
@@ -304,11 +305,38 @@ export const sendStatusUpdate = async (orderId: string, status: string, msg?: st
 };
 
 // ── Main entry point ──────────────────────────────────────────────────────────
-export const processMessage = async (phone: string, rawText: string, messageId: string, msgType: string, interactiveId?: string, profileName?: string) => {
+export const processMessage = async (phone: string, rawText: string, messageId: string, msgType: string, interactiveId?: string, profileName?: string, mediaId?: string, mediaType?: string) => {
   const s = await getSession(phone, profileName);
   wa.markRead(messageId);
   const input = (interactiveId||rawText||'').toLowerCase().trim();
   await track(phone,'message',{ state:s.state, input:input.slice(0,40) });
+
+  // ── IMAGE: customer sends a photo of a product or shopping list ───────────────
+  if ((msgType === 'image' || msgType === 'document') && mediaId) {
+    await wa.sendText(s.phone, `📸 Got your image! Give me a second to check what that is... 🔍`);
+    const mediaUrl = await wa.getMediaUrl(mediaId);
+    if (mediaUrl) {
+      const items = await ai.identifyProductFromImage(mediaUrl, mediaType || 'image/jpeg');
+      if (items.length > 1) {
+        // Shopping list photo — search for all items
+        return handleShoppingList(s, items);
+      } else if (items.length === 1) {
+        // Single product photo
+        await wa.sendText(s.phone, `I can see *${items[0]}* in that photo! Let me find it for you 🛍️`);
+        return handleSearch(s, items[0]);
+      }
+    }
+    await wa.sendText(s.phone, `Hmm, I couldn't identify that product from the image 😅 Could you type the name instead? I'll find it quickly for you!`);
+    return;
+  }
+
+  // ── SHOPPING LIST: customer sends multiple items at once ──────────────────────
+  if (!interactiveId && rawText.trim().length > 10 && ai.looksLikeShoppingList(rawText)) {
+    const items = await ai.parseShoppingList(rawText);
+    if (items.length >= 2) {
+      return handleShoppingList(s, items);
+    }
+  }
 
   // Global commands
   if (MAIN.has(input)||input==='btn_menu') return mainMenu(s);
@@ -319,7 +347,7 @@ export const processMessage = async (phone: string, rawText: string, messageId: 
   if (HELP.has(input)||input==='btn_support') {
     await set(s.id,{ state:'SUPPORT' });
     const phone_s = await getSetting('support_phone','+234 800 000 0000');
-    await wa.sendText(s.phone,`🤝 *Ojaoba Support*\n\nA support agent will respond to you shortly.\n\n📞 Call: ${phone_s}\n📧 Email: support@ojaoba.com\n\nType your message and we'll get back to you.\nType *menu* to continue shopping.`);
+    await wa.sendText(s.phone,`🤝 *Ojaoba Support*\n\nAdaeze here! A member of our team will respond to you shortly.\n\n📞 Call: ${phone_s}\n📧 Email: support@ojaoba.com\n\nType your message and we'll get back to you.\nType *menu* to continue shopping.`);
     return;
   }
 
@@ -472,21 +500,87 @@ async function addToCart(s: any, productId: string, qty: number) {
   await track(s.phone,'add_to_cart',{ productId, qty });
 }
 
-async function handleSearch(s: any, q: string) {
-  if (!q||q.length<2) { await wa.sendText(s.phone,'⚠️ Type at least 2 characters to search.\n\nExample: *rice*'); return; }
-  const results = await shopify.searchProducts(q, 8);
+async function handleSearch(s: any, rawQ: string) {
+  if (!rawQ||rawQ.length<2) { await wa.sendText(s.phone,'⚠️ Type at least 2 characters to search.\n\nExample: *rice*'); return; }
+
+  // AI typo correction — try raw first, then corrected if no results
+  let q = rawQ;
+  let results = await shopify.searchProducts(q, 8);
+
   if (!results.length) {
+    const corrected = await ai.interpretSearch(rawQ);
+    if (corrected.toLowerCase() !== rawQ.toLowerCase()) {
+      const correctedResults = await shopify.searchProducts(corrected, 8);
+      if (correctedResults.length) {
+        q = corrected;
+        results = correctedResults;
+        await wa.sendText(s.phone, `Did you mean *"${corrected}"*? Let me show you what I found! 😊`);
+      }
+    }
+  }
+
+  if (!results.length) {
+    const reply = await ai.adaezeSay(`Customer searched for "${rawQ}" but nothing was found in the store.`, 'You are Adaeze at Ojaoba Food Market. The product was not found. Apologize warmly and suggest they try browsing categories or searching differently. Keep it under 2 sentences.');
     await wa.sendButtons(s.phone,
-      `😔 No results for *"${q}"*\n\nTry a different keyword or browse by category.`,
-      [{ id:'btn_search', title:'🔍 Search Again' }, { id:'btn_browse', title:'🛍️ Browse' }, { id:'btn_menu', title:'🏠 Menu' }]
+      reply || `Hmm, I couldn't find *"${rawQ}"* in our store right now 😕\n\nTry browsing our categories or search with a different keyword!`,
+      [{ id:'btn_search', title:'🔍 Try Again' }, { id:'btn_browse', title:'🛍️ Browse' }, { id:'btn_menu', title:'🏠 Menu' }]
     );
     return;
   }
+
   await set(s.id,{ state:'PRODUCTS', context:{ currentCategory:`🔍 "${q}"`, currentPage:1, searchResults:results.map((p:any)=>p.id) } });
   const lines = results.map((p:any,i:number)=>`${EMOJI[i]||(i+1)+'.'} *${p.title}*\n    💰 ${kobo(p.price_kobo)}  _${p.category}_`);
   await wa.sendText(s.phone,`🔍 *"${q}"* — ${results.length} result${results.length>1?'s':''}\n${'─'.repeat(24)}\n\n${lines.join('\n\n')}\n\n${'─'.repeat(24)}\n_Tap a number to view & add to cart_`);
   await wa.sendButtons(s.phone, `Found ${results.length} result${results.length>1?'s':''} for *"${q}"*`, [{ id:'btn_search', title:'🔍 New Search' }, { id:'btn_browse', title:'🛍️ Browse' }, { id:'btn_menu', title:'🏠 Menu' }]);
   await track(s.phone,'search',{ q, results:results.length });
+}
+
+/** Handle a multi-item shopping list — search each item and show results */
+async function handleShoppingList(s: any, items: string[]) {
+  await wa.sendText(s.phone, `🛒 Got your shopping list! Let me check what we have for you...\n\n_Checking ${items.length} items_`);
+
+  const found: { name: string; product: any }[] = [];
+  const notFound: string[] = [];
+
+  for (const item of items.slice(0, 10)) {
+    // Parse qty if present (e.g. "indomie:3")
+    const [name] = item.split(':');
+    const results = await shopify.searchProducts(name.trim(), 1);
+    if (results.length) {
+      found.push({ name: name.trim(), product: results[0] });
+    } else {
+      // Try AI correction
+      const corrected = await ai.interpretSearch(name.trim());
+      const retry = await shopify.searchProducts(corrected, 1);
+      if (retry.length) {
+        found.push({ name: name.trim(), product: retry[0] });
+      } else {
+        notFound.push(name.trim());
+      }
+    }
+  }
+
+  if (!found.length) {
+    await wa.sendText(s.phone, `Eya, I couldn't find any of those items in our store right now 😔 Try browsing our categories to see what's available!\n\nType *browse* to see categories.`);
+    return;
+  }
+
+  // Show results as a list
+  const lines = found.map((f, i) => `${EMOJI[i]||`${i+1}.`} *${f.product.title}* — ${kobo(f.product.price_kobo)}`);
+  const missedNote = notFound.length ? `\n\n⚠️ Not available: ${notFound.join(', ')}` : '';
+
+  await wa.sendText(s.phone,
+    `✅ *Here's what I found (${found.length}/${items.length} items):*\n\n${lines.join('\n')}${missedNote}\n\n_Tap a number to view & add each item to your cart!_`
+  );
+
+  // Save results so customer can tap numbers to view
+  await set(s.id,{ state:'PRODUCTS', context:{ currentCategory:'🛒 Your List', currentPage:1, searchResults:found.map(f=>f.product.id) } });
+  await wa.sendButtons(s.phone, `Tap a number above to view & add to cart, or:`, [
+    { id:'btn_browse', title:'🛍️ Browse More' },
+    { id:'btn_cart', title:'🛒 View Cart' },
+    { id:'btn_menu', title:'🏠 Menu' },
+  ]);
+  await track(s.phone,'shopping_list',{ items: items.length, found: found.length });
 }
 
 async function showOrderDetail(s: any, order: any) {

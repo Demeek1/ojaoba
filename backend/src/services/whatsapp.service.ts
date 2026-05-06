@@ -46,7 +46,7 @@ export const markRead = (messageId: string) =>
 export const verifyWebhook = (mode: string, token: string, challenge: string): string | null =>
   (mode === 'subscribe' && token === process.env.WA_VERIFY_TOKEN) ? challenge : null;
 
-export interface IncomingMsg { from: string; messageId: string; type: string; text?: string; interactiveId?: string; profileName?: string; }
+export interface IncomingMsg { from: string; messageId: string; type: string; text?: string; interactiveId?: string; profileName?: string; mediaId?: string; mediaType?: string; }
 
 export const parseWebhook = (body: any): IncomingMsg | null => {
   try {
@@ -59,7 +59,20 @@ export const parseWebhook = (body: any): IncomingMsg | null => {
       const r = msg.interactive?.button_reply || msg.interactive?.list_reply;
       base.interactiveId = r?.id || '';
       base.text = r?.title || '';
+    } else if (msg.type === 'image' || msg.type === 'document') {
+      const media = msg.image || msg.document;
+      base.mediaId = media?.id || '';
+      base.mediaType = media?.mime_type || 'image/jpeg';
+      base.text = media?.caption?.trim() || '';
     } else base.text = msg.type;
     return base;
   } catch { return null; }
 };
+
+/** Resolve a WhatsApp media ID to a downloadable URL */
+export async function getMediaUrl(mediaId: string): Promise<string | null> {
+  try {
+    const res = await axios.get(`${WA_BASE}/${mediaId}`, { headers: headers(), timeout: 8000 });
+    return res.data?.url || null;
+  } catch { return null; }
+}

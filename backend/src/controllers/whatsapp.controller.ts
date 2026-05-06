@@ -19,7 +19,7 @@ export const receiveMessage = async (req: Request, res: Response) => {
     const msg = wa.parseWebhook(req.body);
     if (!msg) { console.log('[WA webhook] no message parsed (likely status update)'); return; }
     console.log('[WA webhook] msg from:', msg.from, 'type:', msg.type, 'text:', msg.text);
-    await chatbot.processMessage(msg.from, msg.text||'', msg.messageId, msg.type, msg.interactiveId, msg.profileName);
+    await chatbot.processMessage(msg.from, msg.text||'', msg.messageId, msg.type, msg.interactiveId, msg.profileName, msg.mediaId, msg.mediaType);
   } catch (e: any) { console.error('[WA webhook]', e.message); }
 };
 
