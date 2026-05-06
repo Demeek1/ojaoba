@@ -9,12 +9,21 @@ import {
   CheckCircle, Clock, XCircle, Package, Truck, X
 } from 'lucide-react';
 
+interface OrderItem {
+  title: string;
+  // cart stores camelCase; some older records may have snake_case
+  quantity?: number;  qty?: number;
+  priceKobo?: number; price_kobo?: number;
+  note?: string;
+  imageUrl?: string;
+}
+
 interface Order {
   id: string;
   customer_name: string;
   customer_phone: string;
   address: string;
-  items: Array<{ title: string; qty: number; price_kobo: number }>;
+  items: OrderItem[];
   subtotal_kobo: number;
   delivery_fee_kobo: number;
   total_kobo: number;
@@ -86,13 +95,24 @@ function OrderDetailModal({ order, onClose }: { order: Order; onClose: () => voi
           {/* Items */}
           <div>
             <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-3">Items</h3>
-            <div className="space-y-2">
-              {order.items?.map((item, i) => (
-                <div key={i} className="flex items-center justify-between text-sm">
-                  <span className="text-gray-700">{item.qty}× {item.title}</span>
-                  <span className="font-semibold text-gray-900">{fmt(item.price_kobo * item.qty)}</span>
-                </div>
-              ))}
+            <div className="space-y-3">
+              {order.items?.map((item, i) => {
+                const qty   = item.quantity   ?? item.qty        ?? 1;
+                const price = item.priceKobo  ?? item.price_kobo ?? 0;
+                return (
+                  <div key={i} className="flex items-start justify-between text-sm gap-2">
+                    <div className="flex-1 min-w-0">
+                      <span className="text-gray-700 font-medium">{qty}× {item.title}</span>
+                      {item.note && (
+                        <p className="text-xs text-amber-700 bg-amber-50 rounded-lg px-2 py-1 mt-1 border border-amber-100">
+                          📝 {item.note}
+                        </p>
+                      )}
+                    </div>
+                    <span className="font-semibold text-gray-900 shrink-0">{fmt(price * qty)}</span>
+                  </div>
+                );
+              })}
             </div>
             <div className="border-t mt-3 pt-3 space-y-1">
               <div className="flex justify-between text-sm text-gray-500">
