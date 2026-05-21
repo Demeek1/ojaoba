@@ -225,11 +225,18 @@ export default function HomePage() {
                 style={{ position:'relative',width:'100%',height:'100dvh',scrollSnapAlign:'start',flexShrink:0 }}>
 
                 {/* Background */}
-                {p.image_url
-                  ? <img src={p.image_url} alt={p.title} style={{ position:'absolute',inset:0,width:'100%',height:'100%',objectFit:'cover' }} />
-                  : <div style={{ position:'absolute',inset:0,background:`linear-gradient(160deg,${g1},${g2},#0D001A)`,display:'flex',alignItems:'center',justifyContent:'center' }}>
-                      <span style={{ fontSize:120,opacity:0.25 }}>{icon(p.category)}</span>
-                    </div>}
+                {p.image_url ? (
+                  <>
+                    {/* Blurred background fills the full screen */}
+                    <img src={p.image_url} alt="" aria-hidden style={{ position:'absolute',inset:0,width:'100%',height:'100%',objectFit:'cover',filter:'blur(28px) brightness(0.45) saturate(1.3)',transform:'scale(1.08)' }} />
+                    {/* Full product image — never cropped */}
+                    <img src={p.image_url} alt={p.title} style={{ position:'absolute',inset:0,width:'100%',height:'100%',objectFit:'contain',objectPosition:'center 40%' }} />
+                  </>
+                ) : (
+                  <div style={{ position:'absolute',inset:0,background:`linear-gradient(160deg,${g1},${g2},#0D001A)`,display:'flex',alignItems:'center',justifyContent:'center' }}>
+                    <span style={{ fontSize:120,opacity:0.25 }}>{icon(p.category)}</span>
+                  </div>
+                )}
 
                 {/* Overlays */}
                 <div style={{ position:'absolute',inset:0,background:'rgba(10,0,20,0.25)' }} />
