@@ -9,6 +9,40 @@ import { fmt } from '@/lib/api';
 const PAYSTACK_KEY = process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY || '';
 const DELIVERY_FEE = 150000; // ₦1,500 in kobo — adjust as needed
 
+/* ── Defined OUTSIDE the page so React never remounts it on re-render ── */
+function FormInput({
+  label, value, onChange, type = 'text', placeholder, icon: Icon, error,
+}: {
+  label: string; value: string; onChange: (v: string) => void;
+  type?: string; placeholder: string; icon: any; error?: string;
+}) {
+  return (
+    <div style={{ marginBottom: 16 }}>
+      <label style={{ display:'block', color:'rgba(255,255,255,0.7)', fontSize:12, fontWeight:600, marginBottom:6, textTransform:'uppercase', letterSpacing:.5 }}>
+        {label}
+      </label>
+      <div style={{ position:'relative' }}>
+        <div style={{ position:'absolute', left:13, top:'50%', transform:'translateY(-50%)', pointerEvents:'none' }}>
+          <Icon size={16} color="rgba(255,255,255,0.3)" />
+        </div>
+        <input
+          type={type}
+          value={value}
+          placeholder={placeholder}
+          onChange={e => onChange(e.target.value)}
+          style={{
+            width:'100%', padding:'13px 14px 13px 40px', borderRadius:12,
+            background:'rgba(255,255,255,0.06)',
+            border:`1.5px solid ${error ? '#EF4444' : 'rgba(255,255,255,0.1)'}`,
+            color:'white', fontSize:14, outline:'none',
+          }}
+        />
+      </div>
+      {error && <p style={{ color:'#F87171', fontSize:11, marginTop:4 }}>{error}</p>}
+    </div>
+  );
+}
+
 const NIGERIAN_STATES = [
   'Abia','Adamawa','Akwa Ibom','Anambra','Bauchi','Bayelsa','Benue','Borno',
   'Cross River','Delta','Ebonyi','Edo','Ekiti','Enugu','FCT - Abuja','Gombe',
@@ -140,26 +174,6 @@ export default function CheckoutPage() {
     );
   }
 
-  const Input = ({ label, name, type='text', placeholder, icon: Icon }: { label:string; name: keyof typeof form; type?:string; placeholder:string; icon:any }) => (
-    <div style={{ marginBottom:16 }}>
-      <label style={{ display:'block', color:'rgba(255,255,255,0.7)', fontSize:12, fontWeight:600, marginBottom:6, textTransform:'uppercase', letterSpacing:.5 }}>{label}</label>
-      <div style={{ position:'relative' }}>
-        <div style={{ position:'absolute', left:13, top:'50%', transform:'translateY(-50%)', pointerEvents:'none' }}>
-          <Icon size={16} color="rgba(255,255,255,0.3)" />
-        </div>
-        <input
-          type={type} value={form[name]} placeholder={placeholder}
-          onChange={e => field(name, e.target.value)}
-          style={{
-            width:'100%', padding:'13px 14px 13px 40px', borderRadius:12,
-            background:'rgba(255,255,255,0.06)', border:`1.5px solid ${errors[name]?'#EF4444':'rgba(255,255,255,0.1)'}`,
-            color:'white', fontSize:14, outline:'none',
-          }}
-        />
-      </div>
-      {errors[name] && <p style={{ color:'#F87171', fontSize:11, marginTop:4 }}>{errors[name]}</p>}
-    </div>
-  );
 
   return (
     <div style={{ minHeight:'100dvh', background:'linear-gradient(180deg,#0D001A 0%,#1A0033 100%)', display:'flex', justifyContent:'center' }}>
@@ -236,10 +250,10 @@ export default function CheckoutPage() {
               <MapPin size={16} color="#F59E0B" /> Delivery Details
             </h2>
 
-            <Input label="Full Name" name="name" placeholder="e.g. Chioma Ade" icon={User} />
-            <Input label="Phone Number" name="phone" type="tel" placeholder="e.g. 08012345678" icon={Phone} />
-            <Input label="Email (optional)" name="email" type="email" placeholder="e.g. you@email.com" icon={Mail} />
-            <Input label="Delivery Address" name="address" placeholder="Street address, house number" icon={MapPin} />
+            <FormInput label="Full Name"         value={form.name}    onChange={v=>field('name',v)}    placeholder="e.g. Chioma Ade"        icon={User}  error={errors.name} />
+            <FormInput label="Phone Number"       value={form.phone}   onChange={v=>field('phone',v)}   placeholder="e.g. 08012345678" type="tel"   icon={Phone} error={errors.phone} />
+            <FormInput label="Email (optional)"   value={form.email}   onChange={v=>field('email',v)}   placeholder="e.g. you@email.com" type="email" icon={Mail}  error={errors.email} />
+            <FormInput label="Delivery Address"   value={form.address} onChange={v=>field('address',v)} placeholder="Street address, house number" icon={MapPin} error={errors.address} />
 
             <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:16 }}>
               <div>
