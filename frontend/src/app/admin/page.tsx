@@ -188,7 +188,7 @@ export default function AdminOverviewPage() {
           <div className="flex items-center justify-between px-4 sm:px-6 py-3.5 border-b border-gray-50">
             <div>
               <h2 className="font-bold text-gray-900 text-sm sm:text-base">Conversion Funnel</h2>
-              <p className="text-xs text-gray-400 mt-0.5">WhatsApp to purchase</p>
+              <p className="text-xs text-gray-400 mt-0.5">Browse to purchase (all channels)</p>
             </div>
             <Link href="/admin/analytics" className="text-xs font-semibold text-emerald-600 flex items-center gap-1">
               Analytics <ArrowRight className="w-3 h-3" />

@@ -66,7 +66,7 @@ export default function AnalyticsPage() {
     <div className="p-6 max-w-7xl mx-auto">
       <div className="mb-6">
         <h1 className="text-2xl font-black text-gray-900">Analytics</h1>
-        <p className="text-gray-500 text-sm mt-0.5">WhatsApp chatbot performance</p>
+        <p className="text-gray-500 text-sm mt-0.5">Website + WhatsApp store performance</p>
       </div>
 
       {/* Stats */}
@@ -74,7 +74,7 @@ export default function AnalyticsPage() {
         <StatCard
           label="Total Sessions"
           value={isLoading ? '—' : (data?.totals.sessions || 0).toLocaleString()}
-          sub="Unique WhatsApp users"
+          sub="WhatsApp sessions"
           icon={MessageCircle}
           color="emerald"
         />
@@ -103,7 +103,7 @@ export default function AnalyticsPage() {
         {/* Conversion Funnel */}
         <div className="bg-white rounded-2xl border border-gray-100 p-6">
           <h2 className="font-bold text-gray-900 mb-1">Conversion Funnel</h2>
-          <p className="text-sm text-gray-400 mb-6">From first message to payment</p>
+          <p className="text-sm text-gray-400 mb-6">Website & WhatsApp — browse to payment</p>
           {isLoading ? (
             <div className="space-y-4">
               {Array.from({ length: 4 }).map((_, i) => (
@@ -144,7 +144,7 @@ export default function AnalyticsPage() {
         {/* Top Products */}
         <div className="bg-white rounded-2xl border border-gray-100 p-6">
           <h2 className="font-bold text-gray-900 mb-1">Top Products</h2>
-          <p className="text-sm text-gray-400 mb-5">By WhatsApp interactions</p>
+          <p className="text-sm text-gray-400 mb-5">By store interactions (last 30 days)</p>
           {isLoading ? (
             <div className="space-y-3">
               {Array.from({ length: 5 }).map((_, i) => (

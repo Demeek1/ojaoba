@@ -173,8 +173,91 @@ export const updateOrderStatus = async (req: Request, res: Response) => {
       res.status(400).json({ error: `Invalid status: ${req.body.status}` }); return;
     }
     await db.query(`UPDATE orders SET status=$1, updated_at=NOW() WHERE id=$2`, [dbStatus, req.params.id]);
-    await chatbot.sendStatusUpdate(req.params.id, dbStatus, req.body.message).catch(() => {});
+    // Only send WA notification for WhatsApp-sourced orders
+    const { rows } = await db.query(`SELECT source FROM orders WHERE id=$1`, [req.params.id]);
+    if (!rows[0] || rows[0].source !== 'website') {
+      await chatbot.sendStatusUpdate(req.params.id, dbStatus, req.body.message).catch(() => {});
+    }
     res.json({ ok: true });
+  } catch(e: any) { res.status(500).json({ error: e.message }); }
+};
+
+// ── Website Order Endpoints ───────────────────────────────────────────────────
+
+/** POST /api/orders — create a pending website order before Paystack payment */
+export const createWebOrder = async (req: Request, res: Response) => {
+  try {
+    const { name, phone, email, address, items, subtotal_kobo, delivery_fee_kobo, total_kobo, notes } = req.body;
+    if (!name || !phone || !items?.length || !total_kobo) {
+      res.status(400).json({ error: 'Missing required fields' }); return;
+    }
+    const id  = uuidv4();
+    const ref = `OJA-WEB-${Date.now()}-${id.slice(0, 6).toUpperCase()}`;
+    const cleanPhone = String(phone).replace(/\D/g, '');
+
+    await db.query(`
+      INSERT INTO orders
+        (id, phone, customer_name, customer_email, delivery_address,
+         items, subtotal_kobo, delivery_fee_kobo, total_kobo,
+         status, paystack_ref, notes, source)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'PENDING_PAYMENT',$10,$11,'website')
+    `, [
+      id, cleanPhone, name.trim(), email?.trim() || null, address?.trim() || null,
+      JSON.stringify(items),
+      Number(subtotal_kobo), Number(delivery_fee_kobo), Number(total_kobo),
+      ref, notes?.trim() || null,
+    ]);
+
+    // Log checkout_started analytics event
+    await db.query(`
+      INSERT INTO analytics (id, phone, event, metadata, created_at)
+      VALUES ($1,$2,'checkout_started',$3,NOW())
+    `, [uuidv4(), cleanPhone, JSON.stringify({ source: 'website', orderId: id })]);
+
+    res.json({ orderId: id, ref });
+  } catch(e: any) { res.status(500).json({ error: e.message }); }
+};
+
+/** POST /api/orders/verify — called by frontend after Paystack payment succeeds */
+export const verifyWebOrder = async (req: Request, res: Response) => {
+  try {
+    const { ref } = req.body;
+    if (!ref) { res.status(400).json({ error: 'ref required' }); return; }
+
+    // Verify with Paystack API
+    const psKey = process.env.PAYSTACK_SECRET_KEY;
+    if (!psKey) { res.status(500).json({ error: 'Payment verification not configured' }); return; }
+
+    const { data: ps } = await axios.get(
+      `https://api.paystack.co/transaction/verify/${encodeURIComponent(ref)}`,
+      { headers: { Authorization: `Bearer ${psKey}` } }
+    );
+
+    if (ps.data?.status !== 'success') {
+      res.status(400).json({ error: 'Payment not completed', paystackStatus: ps.data?.status }); return;
+    }
+
+    // Mark order as PAID
+    const { rows } = await db.query(`
+      UPDATE orders SET status='PAID', updated_at=NOW()
+      WHERE paystack_ref=$1 AND source='website'
+      RETURNING id, phone
+    `, [ref]);
+
+    if (!rows.length) {
+      // Order may already be marked paid — still return ok
+      res.json({ ok: true }); return;
+    }
+
+    const { id: orderId, phone } = rows[0];
+
+    // Log analytics events
+    await db.query(`
+      INSERT INTO analytics (id, phone, event, metadata, created_at)
+      VALUES ($1,$2,'payment_confirmed',$3,NOW())
+    `, [uuidv4(), phone, JSON.stringify({ source: 'website', orderId, ref })]);
+
+    res.json({ ok: true, orderId });
   } catch(e: any) { res.status(500).json({ error: e.message }); }
 };
 
@@ -279,16 +362,37 @@ export const getAnalytics = async (_req: Request, res: Response) => {
           COALESCE(SUM(total_kobo),0)::bigint AS revenue_kobo,
           COALESCE(AVG(total_kobo),0)::bigint AS avg_order_value
         FROM orders WHERE status NOT IN ('PENDING_PAYMENT','CANCELLED','REFUNDED')
+        -- includes both WhatsApp and website orders
       `),
       db.query(`
         SELECT
-          DATE_TRUNC('day', created_at)::date AS date,
-          COUNT(DISTINCT phone)::int AS sessions,
-          COUNT(*) FILTER(WHERE event='order_created')::int AS orders,
-          0::bigint AS revenue_kobo
-        FROM analytics
-        WHERE created_at > NOW()-INTERVAL '14d'
-        GROUP BY date ORDER BY date
+          d.date,
+          COALESCE(a.sessions, 0)::int AS sessions,
+          COALESCE(o.orders, 0)::int AS orders,
+          COALESCE(o.revenue_kobo, 0)::bigint AS revenue_kobo
+        FROM (
+          SELECT generate_series(
+            (NOW()-INTERVAL '13d')::date,
+            NOW()::date,
+            '1 day'
+          )::date AS date
+        ) d
+        LEFT JOIN (
+          SELECT DATE_TRUNC('day', created_at)::date AS date,
+                 COUNT(DISTINCT phone)::int AS sessions
+          FROM analytics WHERE created_at > NOW()-INTERVAL '14d'
+          GROUP BY 1
+        ) a ON a.date = d.date
+        LEFT JOIN (
+          SELECT DATE_TRUNC('day', created_at)::date AS date,
+                 COUNT(*)::int AS orders,
+                 COALESCE(SUM(total_kobo),0)::bigint AS revenue_kobo
+          FROM orders
+          WHERE created_at > NOW()-INTERVAL '14d'
+            AND status NOT IN ('PENDING_PAYMENT','CANCELLED','REFUNDED')
+          GROUP BY 1
+        ) o ON o.date = d.date
+        ORDER BY d.date
       `),
       db.query(`
         SELECT

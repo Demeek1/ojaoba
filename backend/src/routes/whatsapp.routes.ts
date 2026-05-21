@@ -9,11 +9,16 @@ r.post('/webhook',          ctrl.receiveMessage);
 r.get('/payment/callback',  ctrl.paymentCallback);
 r.post('/shopify/products', express.raw({ type: 'application/json' }), ctrl.shopifyWebhook);
 
+// ── Public website order endpoints (no auth required) ──
+r.post('/orders',        ctrl.createWebOrder);
+r.post('/orders/verify', ctrl.verifyWebOrder);
+
 // Admin routes
 r.get('/admin/dashboard',          requireAdmin, ctrl.getDashboard);
 r.get('/admin/orders',             requireAdmin, ctrl.listOrders);
 r.get('/admin/orders/:id',         requireAdmin, ctrl.getOrder);
 r.put('/admin/orders/:id/status',  requireAdmin, ctrl.updateOrderStatus);
+r.patch('/admin/orders/:id',       requireAdmin, ctrl.updateOrderStatus); // frontend sends PATCH
 r.get('/admin/sessions',                       requireAdmin, ctrl.listSessions);
 r.get('/admin/sessions/:phone/messages',       requireAdmin, ctrl.getSessionMessages);
 r.post('/admin/sessions/:phone/reply',         requireAdmin, ctrl.adminReply);

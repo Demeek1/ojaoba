@@ -147,6 +147,11 @@ async function setupDatabase() {
     await db.query(`CREATE INDEX IF NOT EXISTS idx_orders_status  ON orders(status)`);
     await db.query(`CREATE INDEX IF NOT EXISTS idx_orders_created ON orders(created_at)`);
 
+    // Website order support — add columns if they don't exist yet
+    await db.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS source TEXT DEFAULT 'whatsapp'`);
+    await db.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS customer_email TEXT`);
+    await db.query(`CREATE INDEX IF NOT EXISTS idx_orders_source ON orders(source)`);
+
     // Analytics events
     await db.query(`
       CREATE TABLE IF NOT EXISTS analytics (

@@ -10,6 +10,7 @@ import { loadCart, clearCart, CartItem } from '@/lib/cart';
 import { fmt } from '@/lib/api';
 
 const PAYSTACK_KEY = process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY || '';
+const API_URL      = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
 const DELIVERY_FEE = 150000; // ₦1,500 in kobo
 
 const NG_STATES = [
@@ -102,7 +103,7 @@ export default function CheckoutPage() {
     });
   }
 
-  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const data    = new FormData(e.currentTarget);
     const name    = (data.get('name') as string || '').trim();
@@ -126,38 +127,80 @@ export default function CheckoutPage() {
     setErrors(errs);
     if (Object.keys(errs).length) return;
 
-    /* Build Paystack metadata */
-    const itemLines = cart.map(c => {
-      const note = itemNotes[c.id] ? ` [${itemNotes[c.id]}]` : '';
-      return `• ${c.title}${note} x${c.qty} — ${fmt(c.price_kobo * c.qty)}`;
-    }).join('\n');
-    const addrFull = `${address}, ${city}, ${state}`;
-    const noteFull = genNote ? `General: ${genNote}` : '';
-    const psEmail  = email || `${phone.replace(/\D/g, '')}@ojaoba.customer`;
-
     if (!window.PaystackPop) {
       alert('Payment is loading — please try again in a moment.');
       return;
     }
 
     setLoading(true);
+
+    /* 1️⃣  Save pending order to backend BEFORE opening Paystack */
+    let orderId = '';
+    let psRef   = '';
+    try {
+      const addrFull = `${address}, ${city}, ${state}`;
+      const items = cart.map(c => ({
+        title:     c.title,
+        quantity:  c.qty,
+        priceKobo: c.price_kobo,
+        imageUrl:  c.image_url,
+        note:      itemNotes[c.id] || '',
+      }));
+
+      const res = await fetch(`${API_URL}/whatsapp/orders`, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name, phone, email: email || null,
+          address: addrFull,
+          items,
+          subtotal_kobo:      subtotal,
+          delivery_fee_kobo:  DELIVERY_FEE,
+          total_kobo:         total,
+          notes: genNote || null,
+        }),
+      });
+
+      if (!res.ok) throw new Error('Failed to create order');
+      const json = await res.json();
+      orderId = json.orderId;
+      psRef   = json.ref;
+    } catch {
+      // If backend is unreachable, fall back to client-generated ref
+      psRef = `OJA-${Date.now()}`;
+    }
+
+    const psEmail = email || `${phone.replace(/\D/g, '')}@ojaoba.customer`;
+
+    /* 2️⃣  Open Paystack */
     window.PaystackPop.setup({
       key:      PAYSTACK_KEY || 'pk_test_placeholder',
       email:    psEmail,
       amount:   total,
       currency: 'NGN',
-      ref:      `OJA-${Date.now()}`,
+      ref:      psRef,
       metadata: {
         custom_fields: [
-          { display_name:'Name',    variable_name:'name',    value: name },
-          { display_name:'Phone',   variable_name:'phone',   value: phone },
-          { display_name:'Address', variable_name:'address', value: addrFull },
-          { display_name:'Items',   variable_name:'items',   value: itemLines },
-          { display_name:'Notes',   variable_name:'notes',   value: noteFull || 'None' },
+          { display_name:'Name',     variable_name:'name',    value: name },
+          { display_name:'Phone',    variable_name:'phone',   value: phone },
+          { display_name:'Address',  variable_name:'address', value: `${address}, ${city}, ${state}` },
+          { display_name:'Order ID', variable_name:'orderId', value: orderId },
         ],
       },
-      callback() { clearCart(); setSuccess(true); setLoading(false); },
-      onClose()  { setLoading(false); },
+      async callback() {
+        /* 3️⃣  Verify payment on backend — marks order PAID in DB */
+        try {
+          await fetch(`${API_URL}/whatsapp/orders/verify`, {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ref: psRef }),
+          });
+        } catch { /* non-blocking — Paystack webhook will also fire */ }
+        clearCart();
+        setSuccess(true);
+        setLoading(false);
+      },
+      onClose() { setLoading(false); },
     }).openIframe();
   }
 
