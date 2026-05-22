@@ -209,7 +209,8 @@ export default function CheckoutPage() {
         onClose() { setLoading(false); },
       }).openIframe();
     } catch (err: any) {
-      alert('Could not open payment. Please check your connection and try again.');
+      const msg = err?.message || String(err) || 'Unknown error';
+      alert(`Payment error: ${msg}`);
       setLoading(false);
     }
   }
