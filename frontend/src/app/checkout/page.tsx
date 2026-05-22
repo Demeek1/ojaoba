@@ -193,15 +193,13 @@ export default function CheckoutPage() {
             { display_name:'Order ID', variable_name:'orderId', value: orderId },
           ],
         },
-        async callback() {
-          /* 3️⃣  Verify payment on backend — marks order PAID in DB */
-          try {
-            await fetch(`${API_URL}/whatsapp/orders/verify`, {
-              method:  'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ ref: psRef }),
-            });
-          } catch { /* non-blocking — Paystack webhook will also fire */ }
+        callback: function() {
+          /* 3️⃣  Verify payment on backend — marks order PAID in DB (fire & forget) */
+          fetch(`${API_URL}/whatsapp/orders/verify`, {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ref: psRef }),
+          }).catch(() => {});
           clearCart();
           setSuccess(true);
           setLoading(false);
