@@ -170,7 +170,7 @@ export const getAllProducts = async (page=1, size=20, category?: string) => {
   const where = category ? `WHERE category=$3 AND available=true` : `WHERE available=true`;
   const params = category ? [size, offset, category] : [size, offset];
   const [{ rows: products }, { rows: count }] = await Promise.all([
-    db.query(`SELECT id,shopify_id,title,price_kobo,compare_price_kobo,image_url,available,inventory,category,description,updated_at FROM products ${where} ORDER BY purchase_count DESC, title LIMIT $1 OFFSET $2`, params),
+    db.query(`SELECT id,shopify_id,title,price_kobo,compare_price_kobo,image_url,available,inventory,category,description,variants,updated_at FROM products ${where} ORDER BY purchase_count DESC, title LIMIT $1 OFFSET $2`, params),
     db.query(`SELECT COUNT(*)::int AS count FROM products ${category?'WHERE category=$1 AND available=true':'WHERE available=true'}`, category?[category]:[]),
   ]);
   return { products, total: count[0]?.count||0, page, totalPages: Math.ceil((count[0]?.count||0)/size) };
