@@ -130,9 +130,9 @@ export default function HomePage() {
   }
 
   return (
-    <div style={{ height:'100dvh', background:'#000', display:'flex', justifyContent:'center', overflow:'hidden' }}>
+    <div style={{ height:'100dvh', background:'#000', display:'flex', justifyContent:'center', overflow:'hidden', overflowX:'hidden' }}>
       <div
-        style={{ position:'relative', width:'100%', maxWidth:430, height:'100dvh', overflow:'hidden', background:'#0D001A' }}
+        style={{ position:'relative', width:'100%', maxWidth:430, height:'100dvh', overflow:'hidden', overflowX:'hidden', background:'#0D001A' }}
         onTouchStart={onTouchStart}
         onTouchEnd={onTouchEnd}
       >
@@ -222,7 +222,7 @@ export default function HomePage() {
             return (
               <div key={p.id} data-i={i}
                 ref={el=>{ if(el) slideMap.current.set(i,el); else slideMap.current.delete(i); }}
-                style={{ position:'relative',width:'100%',height:'100dvh',scrollSnapAlign:'start',flexShrink:0 }}>
+                style={{ position:'relative',width:'100%',height:'100dvh',scrollSnapAlign:'start',flexShrink:0,overflow:'hidden' }}>
 
                 {/* Background */}
                 {p.image_url ? (
