@@ -12,6 +12,7 @@ r.post('/shopify/products', express.raw({ type: 'application/json' }), ctrl.shop
 // ── Public website order endpoints (no auth required) ──
 r.post('/orders',        ctrl.createWebOrder);
 r.post('/orders/verify', ctrl.verifyWebOrder);
+r.get('/orders/track',   ctrl.trackOrders);
 
 // Admin routes
 r.get('/admin/dashboard',          requireAdmin, ctrl.getDashboard);

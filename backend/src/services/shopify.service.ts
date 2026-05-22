@@ -247,27 +247,78 @@ export const syncShopifyCollectionOrder = async (): Promise<void> => {
   }
 };
 
-export const createShopifyOrder = async (order: { items: any[]; customerName: string; customerPhone: string; deliveryAddress: string; orderRef: string }): Promise<string> => {
+/**
+ * Look up a Shopify customer by phone (and optionally email).
+ * If not found, create one. Returns the Shopify customer ID or null on error.
+ */
+export const findOrCreateShopifyCustomer = async (
+  phone: string, name: string, email?: string | null
+): Promise<string | null> => {
+  try {
+    const api = shopify();
+    const cleanPhone = phone.startsWith('+') ? phone : `+${phone}`;
+    const names = name.trim().split(' ');
+
+    // 1. Search by phone
+    const { data: byPhone } = await api.get('/customers/search.json', {
+      params: { query: `phone:${cleanPhone}`, limit: 1 },
+    });
+    if (byPhone.customers?.length) return String(byPhone.customers[0].id);
+
+    // 2. Search by email if provided
+    if (email) {
+      const { data: byEmail } = await api.get('/customers/search.json', {
+        params: { query: `email:${email}`, limit: 1 },
+      });
+      if (byEmail.customers?.length) return String(byEmail.customers[0].id);
+    }
+
+    // 3. Create new customer
+    const { data: created } = await api.post('/customers.json', {
+      customer: {
+        first_name: names[0] || '',
+        last_name: names.slice(1).join(' ') || '',
+        phone: cleanPhone,
+        ...(email ? { email, verified_email: true } : {}),
+        tags: 'ojaoba',
+      },
+    });
+    return String(created.customer.id);
+  } catch (e: any) {
+    console.warn('[Shopify] findOrCreateShopifyCustomer failed:', e.message);
+    return null;
+  }
+};
+
+export const createShopifyOrder = async (order: {
+  items: any[]; customerName: string; customerPhone: string;
+  deliveryAddress: string; orderRef: string;
+  customerId?: string | null; source?: string;
+}): Promise<string> => {
   const names = order.customerName.trim().split(' ');
+  const source = order.source || 'whatsapp';
 
   // Build note from any per-item prep instructions
   const itemNotes = order.items.filter(i => i.note && i.note.trim()).map(i => `• ${i.title}: ${i.note}`);
-  const orderNote = [`WhatsApp Order | Ref: ${order.orderRef}`, ...(itemNotes.length ? ['', 'Prep Instructions:', ...itemNotes] : [])].join('\n');
+  const orderNote = [`${source === 'website' ? 'Website' : 'WhatsApp'} Order | Ref: ${order.orderRef}`, ...(itemNotes.length ? ['', 'Prep Instructions:', ...itemNotes] : [])].join('\n');
 
   const { data } = await shopify().post('/orders.json', {
     order: {
       line_items: order.items.map(i => ({
         title: i.title,
         quantity: i.quantity,
-        price: (i.priceKobo/100).toFixed(2),
-        ...(i.variantId ? { variant_id: parseInt(i.variantId) } : { product_id: parseInt(i.shopifyId) }),
-        // Show prep note as a line item property in Shopify
+        price: ((i.priceKobo || i.price_kobo || 0)/100).toFixed(2),
+        ...(i.variantId ? { variant_id: parseInt(i.variantId) } : (i.shopifyId ? { product_id: parseInt(i.shopifyId) } : {})),
         ...(i.note && i.note.trim() ? { properties: [{ name: 'Prep Instructions', value: i.note }] } : {}),
       })),
-      customer: { first_name: names[0]||'', last_name: names.slice(1).join(' ')||'', phone: order.customerPhone },
+      // Attach to existing Shopify customer if we found/created one
+      ...(order.customerId
+        ? { customer: { id: parseInt(order.customerId) } }
+        : { customer: { first_name: names[0]||'', last_name: names.slice(1).join(' ')||'', phone: order.customerPhone } }
+      ),
       shipping_address: { name: order.customerName, address1: order.deliveryAddress, phone: order.customerPhone, country: 'Nigeria', country_code: 'NG' },
       note: orderNote,
-      tags: 'whatsapp,ojaoba',
+      tags: `${source},ojaoba`,
       financial_status: 'paid',
       send_receipt: false,
     },

@@ -257,12 +257,53 @@ export const verifyWebOrder = async (req: Request, res: Response) => {
       VALUES ($1,$2,'payment_confirmed',$3,NOW())
     `, [uuidv4(), phone, JSON.stringify({ source: 'website', orderId, ref })]);
 
-    // Increment purchase counts and push new order to Shopify collections (non-blocking)
-    const { rows: orderRows } = await db.query(`SELECT items FROM orders WHERE id=$1`, [orderId]);
-    const paidItems = typeof orderRows[0]?.items === 'string' ? JSON.parse(orderRows[0].items) : (orderRows[0]?.items || []);
+    // Fetch full order to use for Shopify sync
+    const { rows: orderRows } = await db.query(`SELECT * FROM orders WHERE id=$1`, [orderId]);
+    const fullOrder = orderRows[0];
+    const paidItems = typeof fullOrder?.items === 'string' ? JSON.parse(fullOrder.items) : (fullOrder?.items || []);
+
+    // Find or create Shopify customer by phone — links this order to existing Shopify customer base
+    const shopifyCustomerId = await shopify.findOrCreateShopifyCustomer(
+      phone, fullOrder?.customer_name || '', fullOrder?.customer_email
+    ).catch(() => null);
+
+    if (shopifyCustomerId) {
+      await db.query(`UPDATE orders SET shopify_customer_id=$1 WHERE id=$2`, [shopifyCustomerId, orderId]).catch(() => {});
+    }
+
+    // Create Shopify order (web orders need this too — attaches to the customer record)
+    shopify.createShopifyOrder({
+      items: paidItems,
+      customerName: fullOrder?.customer_name || '',
+      customerPhone: phone,
+      deliveryAddress: fullOrder?.delivery_address || '',
+      orderRef: ref,
+      customerId: shopifyCustomerId,
+      source: 'website',
+    }).then(shopifyOrderId =>
+      db.query(`UPDATE orders SET shopify_order_id=$1, status='PROCESSING', updated_at=NOW() WHERE id=$2`, [shopifyOrderId, orderId])
+    ).catch(e => console.error('[Web] Shopify order creation failed:', e.message));
+
+    // Increment purchase counts and sync collection order (non-blocking)
     shopify.incrementPurchaseCounts(paidItems).then(() => shopify.syncShopifyCollectionOrder()).catch(() => {});
 
     res.json({ ok: true, orderId });
+  } catch(e: any) { res.status(500).json({ error: e.message }); }
+};
+
+/** GET /api/whatsapp/orders/track?phone=XXXXXXXXXX — public order history by phone */
+export const trackOrders = async (req: Request, res: Response) => {
+  try {
+    const phone = String(req.query.phone || '').replace(/\D/g, '');
+    if (phone.length < 7) { res.status(400).json({ error: 'Valid phone number required' }); return; }
+    const { rows } = await db.query(`
+      SELECT id, status, items, subtotal_kobo, delivery_fee_kobo, total_kobo,
+             delivery_address, customer_name, source, created_at, shopify_order_id
+      FROM orders
+      WHERE phone=$1 AND status != 'PENDING_PAYMENT'
+      ORDER BY created_at DESC LIMIT 20
+    `, [phone]);
+    res.json({ orders: rows });
   } catch(e: any) { res.status(500).json({ error: e.message }); }
 };
 

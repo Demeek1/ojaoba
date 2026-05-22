@@ -207,9 +207,9 @@ export default function HomePage() {
           background:'#2D0A4E',
           boxShadow:'0 2px 12px rgba(0,0,0,0.4)',
         }}>
-          <button style={{ width:40,height:40,borderRadius:'50%',background:'rgba(255,255,255,0.1)',border:'1.5px solid rgba(255,255,255,0.15)',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer' }}>
+          <Link href="/track" style={{ width:40,height:40,borderRadius:'50%',background:'rgba(255,255,255,0.1)',border:'1.5px solid rgba(255,255,255,0.15)',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer' }}>
             <Bell size={20} color="#F59E0B" />
-          </button>
+          </Link>
           <img src="/OJAOBA.LOGO.jpg" alt="OjaOba" style={{ height:36, borderRadius:8, objectFit:'contain' }} />
           <button onClick={()=>setCartOpen(true)} style={{
             position:'relative',width:40,height:40,borderRadius:'50%',

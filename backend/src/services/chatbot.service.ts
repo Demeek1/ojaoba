@@ -310,7 +310,18 @@ export const handlePaymentSuccess = async (orderId: string, ref: string) => {
   const items = typeof order.items==='string'?JSON.parse(order.items):order.items||[];
 
   try {
-    const shopifyId = await shopify.createShopifyOrder({ items, customerName:order.customer_name, customerPhone:order.phone, deliveryAddress:order.delivery_address, orderRef:ref });
+    // Find or create Shopify customer — links WhatsApp orders to the unified customer record
+    const shopifyCustomerId = await shopify.findOrCreateShopifyCustomer(
+      order.phone, order.customer_name || '', null
+    ).catch(() => null);
+    if (shopifyCustomerId) {
+      await db.query(`UPDATE orders SET shopify_customer_id=$1 WHERE id=$2`, [shopifyCustomerId, orderId]).catch(() => {});
+    }
+    const shopifyId = await shopify.createShopifyOrder({
+      items, customerName: order.customer_name, customerPhone: order.phone,
+      deliveryAddress: order.delivery_address, orderRef: ref,
+      customerId: shopifyCustomerId, source: 'whatsapp',
+    });
     await db.query(`UPDATE orders SET shopify_order_id=$1, status='PROCESSING', updated_at=NOW() WHERE id=$2`, [shopifyId, orderId]);
     for (const i of items) await shopify.decrementInventory(i.shopifyId, i.quantity);
     shopify.incrementPurchaseCounts(items).then(() => shopify.syncShopifyCollectionOrder()).catch(() => {});
