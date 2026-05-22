@@ -310,15 +310,27 @@ export default function HomePage() {
                 <div style={{ position:'absolute',right:14,bottom:155,zIndex:10,display:'flex',flexDirection:'column',alignItems:'center',gap:14 }}>
 
                   {/* View Cart */}
-                  <div style={{ display:'flex',flexDirection:'column',alignItems:'center',gap:4 }}>
+                  <div style={{ display:'flex',flexDirection:'column',alignItems:'center',gap:5 }}>
                     <button onClick={()=>setCartOpen(true)} style={{
-                      width:50,height:50,borderRadius:'50%',border:'1.5px solid rgba(245,158,11,0.4)',
-                      background:'rgba(245,158,11,0.15)',backdropFilter:'blur(10px)',
+                      position:'relative',
+                      width:54,height:54,borderRadius:'50%',
+                      border:'2px solid #F59E0B',
+                      background:'rgba(245,158,11,0.25)',
+                      backdropFilter:'blur(12px)',
+                      boxShadow:'0 0 18px rgba(245,158,11,0.45)',
                       cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',
+                      transition:'all 0.2s',
                     }}>
-                      <ShoppingCart size={22} color="#F59E0B" />
+                      <ShoppingCart size={24} color="#F59E0B" />
+                      {cartCount>0&&(
+                        <span style={{ position:'absolute',top:-4,right:-4,minWidth:18,height:18,padding:'0 4px',borderRadius:9,background:'#EF4444',color:'white',fontSize:10,fontWeight:700,display:'flex',alignItems:'center',justifyContent:'center' }}>
+                          {cartCount}
+                        </span>
+                      )}
                     </button>
-                    <span style={{ color:'rgba(255,255,255,0.55)',fontSize:10 }}>{cartCount>0?cartCount:'Cart'}</span>
+                    {cartCount===0&&(
+                      <span style={{ color:'rgba(255,255,255,0.75)',fontSize:10,fontWeight:600,letterSpacing:0.5 }}>Cart</span>
+                    )}
                   </div>
 
                   {/* Plus — add to cart */}
