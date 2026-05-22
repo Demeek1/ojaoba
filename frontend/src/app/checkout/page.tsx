@@ -128,7 +128,12 @@ export default function CheckoutPage() {
     if (Object.keys(errs).length) return;
 
     if (!window.PaystackPop) {
-      alert('Payment is loading — please try again in a moment.');
+      alert('Payment is still loading, please wait a second and try again.');
+      return;
+    }
+
+    if (!PAYSTACK_KEY) {
+      alert('Payment is not configured. Please contact support.');
       return;
     }
 
@@ -173,35 +178,40 @@ export default function CheckoutPage() {
     const psEmail = email || `${phone.replace(/\D/g, '')}@ojaoba.customer`;
 
     /* 2️⃣  Open Paystack */
-    window.PaystackPop.setup({
-      key:      PAYSTACK_KEY || 'pk_test_placeholder',
-      email:    psEmail,
-      amount:   total,
-      currency: 'NGN',
-      ref:      psRef,
-      metadata: {
-        custom_fields: [
-          { display_name:'Name',     variable_name:'name',    value: name },
-          { display_name:'Phone',    variable_name:'phone',   value: phone },
-          { display_name:'Address',  variable_name:'address', value: `${address}, ${city}, ${state}` },
-          { display_name:'Order ID', variable_name:'orderId', value: orderId },
-        ],
-      },
-      async callback() {
-        /* 3️⃣  Verify payment on backend — marks order PAID in DB */
-        try {
-          await fetch(`${API_URL}/whatsapp/orders/verify`, {
-            method:  'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ ref: psRef }),
-          });
-        } catch { /* non-blocking — Paystack webhook will also fire */ }
-        clearCart();
-        setSuccess(true);
-        setLoading(false);
-      },
-      onClose() { setLoading(false); },
-    }).openIframe();
+    try {
+      window.PaystackPop.setup({
+        key:      PAYSTACK_KEY,
+        email:    psEmail,
+        amount:   total,
+        currency: 'NGN',
+        ref:      psRef,
+        metadata: {
+          custom_fields: [
+            { display_name:'Name',     variable_name:'name',    value: name },
+            { display_name:'Phone',    variable_name:'phone',   value: phone },
+            { display_name:'Address',  variable_name:'address', value: `${address}, ${city}, ${state}` },
+            { display_name:'Order ID', variable_name:'orderId', value: orderId },
+          ],
+        },
+        async callback() {
+          /* 3️⃣  Verify payment on backend — marks order PAID in DB */
+          try {
+            await fetch(`${API_URL}/whatsapp/orders/verify`, {
+              method:  'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ ref: psRef }),
+            });
+          } catch { /* non-blocking — Paystack webhook will also fire */ }
+          clearCart();
+          setSuccess(true);
+          setLoading(false);
+        },
+        onClose() { setLoading(false); },
+      }).openIframe();
+    } catch (err: any) {
+      alert('Could not open payment. Please check your connection and try again.');
+      setLoading(false);
+    }
   }
 
   /* ── Success ── */
