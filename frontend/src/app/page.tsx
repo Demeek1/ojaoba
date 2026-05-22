@@ -108,6 +108,7 @@ export default function HomePage() {
   }
 
   const feedRef    = useRef<HTMLDivElement>(null);
+  const gridRef    = useRef<HTMLDivElement>(null);
   const touchX     = useRef(0);
   const touchY     = useRef(0);
   // double-tap tracking per slide
@@ -134,7 +135,7 @@ export default function HomePage() {
     fetching.current = true;
     if (replace) setIsLoading(true); else setLoadingMore(true);
     try {
-      const p: Record<string,string> = { page: String(page), limit: '6' };
+      const p: Record<string,string> = { page: String(page), limit: '12' };
       if (cat) p.category = cat;
       const { data } = await api.get('/products', { params: p });
       const incoming: Product[] = (data.products ?? []).map((pr: any) => ({
@@ -168,6 +169,19 @@ export default function HomePage() {
     el.addEventListener('scroll', onScroll, { passive:true });
     return () => el.removeEventListener('scroll', onScroll);
   }, [fetchPage]);
+
+  // Grid panel also triggers infinite load as user scrolls down
+  useEffect(() => {
+    const el = gridRef.current;
+    if (!el) return;
+    const onGridScroll = () => {
+      const rem = el.scrollHeight - el.scrollTop - el.clientHeight;
+      if (rem < 400 && !fetching.current && nextPage.current <= totalPages.current)
+        fetchPage(nextPage.current, false);
+    };
+    el.addEventListener('scroll', onGridScroll, { passive:true });
+    return () => el.removeEventListener('scroll', onGridScroll);
+  }, [fetchPage, viewMode]); // re-attach when grid becomes visible
 
   const allCats = useMemo(() => ['', ...rawCats], [rawCats]);
 
@@ -550,12 +564,12 @@ export default function HomePage() {
               </p>
             </div>
             <span style={{ marginLeft:'auto',color:'rgba(255,255,255,0.28)',fontSize:11,flexShrink:0 }}>
-              {products.length} items
+              {products.length}{nextPage.current <= totalPages.current ? '+' : ''} items
             </span>
           </div>
 
           {/* 3-column scrollable grid */}
-          <div style={{ flex:1,overflowY:'auto',scrollbarWidth:'none',padding:'10px 8px 20px',
+          <div ref={gridRef} style={{ flex:1,overflowY:'auto',scrollbarWidth:'none',padding:'10px 8px 20px',
             display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:8,alignContent:'start' }}>
             {products.map(p => {
               const range2  = priceRange(p);
@@ -601,6 +615,26 @@ export default function HomePage() {
                 </button>
               );
             })}
+
+            {/* Grid loading more spinner — spans all 3 cols */}
+            {loadingMore && (
+              <div style={{ gridColumn:'1/-1',display:'flex',justifyContent:'center',
+                alignItems:'center',padding:'20px 0',gap:8 }}>
+                <div style={{ width:22,height:22,border:'2.5px solid rgba(245,158,11,0.15)',
+                  borderTop:'2.5px solid #F59E0B',borderRadius:'50%',
+                  animation:'spin 0.8s linear infinite' }} />
+                <span style={{ color:'rgba(255,255,255,0.3)',fontSize:11 }}>Loading more…</span>
+              </div>
+            )}
+
+            {/* End of list indicator */}
+            {!loadingMore && nextPage.current > totalPages.current && products.length > 0 && (
+              <div style={{ gridColumn:'1/-1',textAlign:'center',padding:'16px 0' }}>
+                <span style={{ color:'rgba(255,255,255,0.18)',fontSize:11 }}>
+                  All {products.length} products loaded
+                </span>
+              </div>
+            )}
           </div>
         </div>
 
