@@ -424,27 +424,38 @@ export default function HomePage() {
 
                 {/* ── BOTTOM INFO ── */}
                 <div style={{ position:'absolute',bottom:0,left:0,right:72,padding:'0 14px 24px',zIndex:10 }}>
-                  <div style={{ display:'inline-block',padding:'3px 10px',borderRadius:20,marginBottom:7,
+                  {/* Category pill */}
+                  <div style={{ display:'inline-block',padding:'3px 10px',borderRadius:20,marginBottom:8,
                     background:`linear-gradient(135deg,${g1},${g2})`,fontSize:11,fontWeight:700,color:'white' }}>
                     {p.category}
                   </div>
-                  <div style={{ display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:8,marginBottom:5 }}>
-                    <h2 style={{ color:'white',fontWeight:800,fontSize:17,lineHeight:1.3,margin:0,flex:1 }}>{p.title}</h2>
-                    <div style={{ flexShrink:0,textAlign:'right' }}>
-                      {range ? (
-                        <div style={{ color:'#F59E0B',fontWeight:900,fontSize:14,lineHeight:1.4 }}>
-                          {fmt(range.min)}<br/>
-                          <span style={{ fontSize:11,opacity:.75 }}>– {fmt(range.max)}</span>
-                        </div>
-                      ) : (
-                        <>
-                          <div style={{ color:'#F59E0B',fontWeight:900,fontSize:20 }}>{fmt(p.price_kobo)}</div>
-                          {p.compare_price_kobo && p.compare_price_kobo>p.price_kobo && (
-                            <div style={{ color:'rgba(255,255,255,0.3)',fontSize:12,textDecoration:'line-through' }}>{fmt(p.compare_price_kobo)}</div>
-                          )}
-                        </>
-                      )}
-                    </div>
+
+                  {/* Title — single line, ellipsis if too long */}
+                  <h2 style={{ color:'white',fontWeight:800,fontSize:17,lineHeight:1.3,margin:'0 0 6px',
+                    overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>
+                    {p.title}
+                  </h2>
+
+                  {/* Price — full width, very visible, always on ONE line */}
+                  <div style={{ marginBottom:6 }}>
+                    {range ? (
+                      <p style={{ color:'#F59E0B',fontWeight:900,fontSize:22,margin:0,whiteSpace:'nowrap',
+                        textShadow:'0 0 20px rgba(245,158,11,0.5)',letterSpacing:-.3 }}>
+                        {fmt(range.min)} <span style={{ opacity:.6,fontSize:16 }}>–</span> {fmt(range.max)}
+                      </p>
+                    ) : (
+                      <div style={{ display:'flex',alignItems:'baseline',gap:8,flexWrap:'nowrap' }}>
+                        <span style={{ color:'#F59E0B',fontWeight:900,fontSize:22,
+                          textShadow:'0 0 20px rgba(245,158,11,0.5)',whiteSpace:'nowrap' }}>
+                          {fmt(p.price_kobo)}
+                        </span>
+                        {p.compare_price_kobo && p.compare_price_kobo>p.price_kobo && (
+                          <span style={{ color:'rgba(255,255,255,0.3)',fontSize:13,textDecoration:'line-through',whiteSpace:'nowrap' }}>
+                            {fmt(p.compare_price_kobo)}
+                          </span>
+                        )}
+                      </div>
+                    )}
                   </div>
 
                   {/* Description + MORE toggle */}
