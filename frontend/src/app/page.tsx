@@ -1,5 +1,5 @@
 'use client';
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
@@ -105,25 +105,54 @@ export default function HomePage() {
     ),
   });
 
-  const { data: feed, isLoading } = useQuery({
-    queryKey: ['feed', cat],
-    queryFn: () => {
-      const p: Record<string,string> = { page:'1', limit:'30' };
+  const [products, setProducts]     = useState<Product[]>([]);
+  const [isLoading, setIsLoading]   = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const nextPage    = useRef(1);
+  const totalPages  = useRef(1);
+  const fetching    = useRef(false); // guard against concurrent fetches
+
+  const fetchPage = useCallback(async (page: number, replace: boolean) => {
+    if (fetching.current) return;
+    fetching.current = true;
+    if (replace) setIsLoading(true); else setLoadingMore(true);
+    try {
+      const p: Record<string,string> = { page: String(page), limit: '15' };
       if (cat) p.category = cat;
-      return api.get('/products', { params:p }).then(r => r.data);
-    },
-    staleTime: 30000,
-  });
+      const { data } = await api.get('/products', { params: p });
+      const incoming: Product[] = data.products ?? [];
+      totalPages.current = data.totalPages ?? 1;
+      // next page to fetch — loop back to 1 when we've exhausted all pages
+      nextPage.current = page < totalPages.current ? page + 1 : 1;
+      setProducts(prev => replace ? incoming : [...prev, ...incoming]);
+    } finally {
+      fetching.current = false;
+      if (replace) setIsLoading(false); else setLoadingMore(false);
+    }
+  }, [cat]);
 
-  const products: Product[] = feed?.products ?? [];
+  /* Reset + initial load when category changes */
+  useEffect(() => {
+    nextPage.current = 1;
+    scrollRef.current?.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior });
+    fetchPage(1, true);
+  }, [cat]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  /* Infinite scroll — load next batch when within 2 screens of the end */
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const onScroll = () => {
+      const remaining = el.scrollHeight - el.scrollTop - el.clientHeight;
+      if (remaining < el.clientHeight * 2 && !fetching.current) {
+        fetchPage(nextPage.current, false);
+      }
+    };
+    el.addEventListener('scroll', onScroll, { passive: true });
+    return () => el.removeEventListener('scroll', onScroll);
+  }, [fetchPage]);
+
   const allCats = ['', ...rawCats];
-
-  /* Reset scroll on category change */
-  const prevCat = useRef(cat);
-  if (prevCat.current !== cat) {
-    prevCat.current = cat;
-    scrollRef.current?.scrollTo({ top:0, behavior:'instant' as ScrollBehavior });
-  }
 
   /* Swipe left/right → change category */
   function onTouchStart(e: React.TouchEvent) {
@@ -377,6 +406,13 @@ export default function HomePage() {
               </div>
             );
           })}
+
+          {/* ── LOAD MORE SPINNER ── */}
+          {loadingMore && (
+            <div style={{ height:'100dvh',scrollSnapAlign:'start',display:'flex',alignItems:'center',justifyContent:'center' }}>
+              <div style={{ width:36,height:36,border:'3px solid rgba(245,158,11,0.15)',borderTop:'3px solid #F59E0B',borderRadius:'50%',animation:'spin 0.8s linear infinite' }} />
+            </div>
+          )}
         </div>
       </div>
 
