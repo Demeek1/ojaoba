@@ -199,8 +199,11 @@ export default function HomePage() {
 
   function handleAddClick(p: Product) {
     const rv = realVariants(p);
-    if (rv.length > 0) { setVariantTarget(p); return; }
-    addProduct(p);
+    // Only show the variant picker when there are 2+ different sizes/options to choose from.
+    // A single variant (e.g. "3L") means there's no choice — just add it directly.
+    if (rv.length > 1) { setVariantTarget(p); return; }
+    const singleVariant = rv.length === 1 ? rv[0] : undefined;
+    addProduct(p, singleVariant);
   }
 
   function decrement(id: string) {
