@@ -313,6 +313,7 @@ export const handlePaymentSuccess = async (orderId: string, ref: string) => {
     const shopifyId = await shopify.createShopifyOrder({ items, customerName:order.customer_name, customerPhone:order.phone, deliveryAddress:order.delivery_address, orderRef:ref });
     await db.query(`UPDATE orders SET shopify_order_id=$1, status='PROCESSING', updated_at=NOW() WHERE id=$2`, [shopifyId, orderId]);
     for (const i of items) await shopify.decrementInventory(i.shopifyId, i.quantity);
+    shopify.incrementPurchaseCounts(items).then(() => shopify.syncShopifyCollectionOrder()).catch(() => {});
   } catch(e:any) { console.error('[Chatbot] Shopify order error:', e.message); }
 
   await db.query(`UPDATE wa_sessions SET order_count=order_count+1 WHERE phone=$1`, [order.phone]).catch(()=>{});

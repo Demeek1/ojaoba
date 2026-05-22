@@ -79,7 +79,7 @@ export const getCategories = async (): Promise<string[]> => {
 export const getProductsByCategory = async (category: string, page=1, size=8) => {
   const offset = (page-1)*size;
   const [{ rows: products }, { rows: count }] = await Promise.all([
-    db.query(`SELECT id,shopify_id,title,price_kobo,compare_price_kobo,image_url,available,inventory,variants,description,category FROM products WHERE category=$1 AND available=true ORDER BY title LIMIT $2 OFFSET $3`, [category, size, offset]),
+    db.query(`SELECT id,shopify_id,title,price_kobo,compare_price_kobo,image_url,available,inventory,variants,description,category FROM products WHERE category=$1 AND available=true ORDER BY purchase_count DESC, title LIMIT $2 OFFSET $3`, [category, size, offset]),
     db.query(`SELECT COUNT(*)::int AS count FROM products WHERE category=$1 AND available=true`, [category]),
   ]);
   const total = count[0]?.count || 0;
@@ -170,10 +170,81 @@ export const getAllProducts = async (page=1, size=20, category?: string) => {
   const where = category ? `WHERE category=$3 AND available=true` : `WHERE available=true`;
   const params = category ? [size, offset, category] : [size, offset];
   const [{ rows: products }, { rows: count }] = await Promise.all([
-    db.query(`SELECT id,shopify_id,title,price_kobo,compare_price_kobo,image_url,available,inventory,category,updated_at FROM products ${where} ORDER BY category,title LIMIT $1 OFFSET $2`, params),
+    db.query(`SELECT id,shopify_id,title,price_kobo,compare_price_kobo,image_url,available,inventory,category,description,updated_at FROM products ${where} ORDER BY purchase_count DESC, title LIMIT $1 OFFSET $2`, params),
     db.query(`SELECT COUNT(*)::int AS count FROM products ${category?'WHERE category=$1 AND available=true':'WHERE available=true'}`, category?[category]:[]),
   ]);
   return { products, total: count[0]?.count||0, page, totalPages: Math.ceil((count[0]?.count||0)/size) };
+};
+
+/** Increment purchase_count for each item by qty when an order is paid */
+export const incrementPurchaseCounts = async (items: { shopifyId?: string; id?: string; quantity: number }[]) => {
+  for (const item of items) {
+    if (item.shopifyId) {
+      await db.query(
+        `UPDATE products SET purchase_count = purchase_count + $1 WHERE shopify_id = $2`,
+        [item.quantity, String(item.shopifyId)]
+      ).catch(() => {});
+    } else if (item.id) {
+      await db.query(
+        `UPDATE products SET purchase_count = purchase_count + $1 WHERE id = $2`,
+        [item.quantity, item.id]
+      ).catch(() => {});
+    }
+  }
+};
+
+/**
+ * Push popularity-based product order into Shopify collections.
+ * Sets each collection to manual sort and repositions products by purchase_count DESC.
+ * Runs async after payment — errors are swallowed so they never block the order flow.
+ */
+export const syncShopifyCollectionOrder = async (): Promise<void> => {
+  try {
+    const api = shopify();
+
+    // 1. Fetch all custom collections
+    const { data: colData } = await api.get('/custom_collections.json', { params: { limit: 250 } });
+    const collections: any[] = colData.custom_collections || [];
+
+    for (const col of collections) {
+      try {
+        // 2. Set sort order to manual (required before we can set positions)
+        await api.put(`/custom_collections/${col.id}.json`, {
+          custom_collection: { id: col.id, sort_order: 'manual' },
+        });
+
+        // 3. Get all collects (product↔collection links) for this collection
+        const { data: collectsData } = await api.get('/collects.json', {
+          params: { collection_id: col.id, limit: 250 },
+        });
+        const collects: { id: number; product_id: number }[] = collectsData.collects || [];
+        if (!collects.length) continue;
+
+        // 4. Look up our purchase_counts for these products
+        const shopifyIds = collects.map(c => String(c.product_id));
+        const { rows } = await db.query(
+          `SELECT shopify_id, purchase_count FROM products WHERE shopify_id = ANY($1)`,
+          [shopifyIds]
+        );
+        const countMap: Record<string, number> = {};
+        for (const r of rows) countMap[r.shopify_id] = r.purchase_count;
+
+        // 5. Sort collects by purchase_count DESC
+        const sorted = [...collects].sort((a, b) =>
+          (countMap[String(b.product_id)] || 0) - (countMap[String(a.product_id)] || 0)
+        );
+
+        // 6. Update each collect's position (1-indexed)
+        for (let i = 0; i < sorted.length; i++) {
+          await api.put(`/collects/${sorted[i].id}.json`, {
+            collect: { id: sorted[i].id, position: i + 1 },
+          }).catch(() => {});
+        }
+      } catch { /* skip this collection on error */ }
+    }
+  } catch (e: any) {
+    console.warn('[Shopify] Collection order sync failed (non-fatal):', e.message);
+  }
 };
 
 export const createShopifyOrder = async (order: { items: any[]; customerName: string; customerPhone: string; deliveryAddress: string; orderRef: string }): Promise<string> => {

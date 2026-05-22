@@ -257,6 +257,11 @@ export const verifyWebOrder = async (req: Request, res: Response) => {
       VALUES ($1,$2,'payment_confirmed',$3,NOW())
     `, [uuidv4(), phone, JSON.stringify({ source: 'website', orderId, ref })]);
 
+    // Increment purchase counts and push new order to Shopify collections (non-blocking)
+    const { rows: orderRows } = await db.query(`SELECT items FROM orders WHERE id=$1`, [orderId]);
+    const paidItems = typeof orderRows[0]?.items === 'string' ? JSON.parse(orderRows[0].items) : (orderRows[0]?.items || []);
+    shopify.incrementPurchaseCounts(paidItems).then(() => shopify.syncShopifyCollectionOrder()).catch(() => {});
+
     res.json({ ok: true, orderId });
   } catch(e: any) { res.status(500).json({ error: e.message }); }
 };

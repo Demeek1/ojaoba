@@ -105,6 +105,8 @@ async function setupDatabase() {
     `);
     await db.query(`CREATE INDEX IF NOT EXISTS idx_products_category ON products(category)`);
     await db.query(`CREATE INDEX IF NOT EXISTS idx_products_available ON products(available)`);
+    await db.query(`ALTER TABLE products ADD COLUMN IF NOT EXISTS purchase_count INTEGER DEFAULT 0`);
+    await db.query(`CREATE INDEX IF NOT EXISTS idx_products_purchase_count ON products(purchase_count DESC)`);
 
     // WhatsApp customer sessions
     await db.query(`
