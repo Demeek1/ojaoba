@@ -13,6 +13,8 @@ r.post('/shopify/products', express.raw({ type: 'application/json' }), ctrl.shop
 r.post('/orders',        ctrl.createWebOrder);
 r.post('/orders/verify', ctrl.verifyWebOrder);
 r.get('/orders/track',   ctrl.trackOrders);
+r.get('/profile',        ctrl.getCustomerProfileRecord);
+r.post('/profile',       ctrl.upsertCustomerProfile);
 
 // Admin routes
 r.get('/admin/dashboard',          requireAdmin, ctrl.getDashboard);

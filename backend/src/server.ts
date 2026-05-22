@@ -204,6 +204,17 @@ async function setupDatabase() {
       process.env.SUPPORT_EMAIL     || 'support@ojaoba.com',
     ]);
 
+    // Customer profiles — saved from checkout, reused on return visits
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS customer_profiles (
+        phone      TEXT PRIMARY KEY,
+        name       TEXT NOT NULL,
+        email      TEXT,
+        address    TEXT,
+        updated_at TIMESTAMPTZ DEFAULT NOW()
+      )
+    `);
+
     // WhatsApp message history (for admin live chat view)
     await db.query(`
       CREATE TABLE IF NOT EXISTS wa_messages (

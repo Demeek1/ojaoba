@@ -262,6 +262,20 @@ export const verifyWebOrder = async (req: Request, res: Response) => {
     const fullOrder = orderRows[0];
     const paidItems = typeof fullOrder?.items === 'string' ? JSON.parse(fullOrder.items) : (fullOrder?.items || []);
 
+    // Upsert customer profile so they can pre-fill on return visits
+    await db.query(`
+      INSERT INTO customer_profiles (phone, name, email, address, updated_at)
+      VALUES ($1,$2,$3,$4,NOW())
+      ON CONFLICT (phone) DO UPDATE
+        SET name=$2, email=COALESCE($3,customer_profiles.email),
+            address=COALESCE($4,customer_profiles.address), updated_at=NOW()
+    `, [
+      rows[0].phone,
+      fullOrder?.customer_name || '',
+      fullOrder?.customer_email || null,
+      fullOrder?.delivery_address || null,
+    ]).catch(() => {});
+
     // Find or create Shopify customer by phone — links this order to existing Shopify customer base
     const shopifyCustomerId = await shopify.findOrCreateShopifyCustomer(
       phone, fullOrder?.customer_name || '', fullOrder?.customer_email
@@ -338,6 +352,36 @@ export const trackOrders = async (req: Request, res: Response) => {
       } : (localOrders[0] ? { name: (localOrders[0] as any).customer_name, email: null } : null),
       orders: allOrders,
     });
+  } catch(e: any) { res.status(500).json({ error: e.message }); }
+};
+
+/** GET /api/whatsapp/profile?phone=XXX — load saved customer profile */
+export const getCustomerProfileRecord = async (req: Request, res: Response) => {
+  try {
+    const phone = String(req.query.phone || '').replace(/\D/g, '');
+    if (phone.length < 7) { res.status(400).json({ error: 'phone required' }); return; }
+    const { rows } = await db.query(
+      'SELECT name, email, address FROM customer_profiles WHERE phone=$1',
+      [phone]
+    );
+    res.json(rows[0] || null);
+  } catch(e: any) { res.status(500).json({ error: e.message }); }
+};
+
+/** POST /api/whatsapp/profile — save/update customer profile */
+export const upsertCustomerProfile = async (req: Request, res: Response) => {
+  try {
+    const { phone, name, email, address } = req.body;
+    if (!phone || !name) { res.status(400).json({ error: 'phone and name required' }); return; }
+    const clean = String(phone).replace(/\D/g, '');
+    await db.query(`
+      INSERT INTO customer_profiles (phone, name, email, address, updated_at)
+      VALUES ($1,$2,$3,$4,NOW())
+      ON CONFLICT (phone) DO UPDATE
+        SET name=$2, email=COALESCE($3,customer_profiles.email),
+            address=COALESCE($4,customer_profiles.address), updated_at=NOW()
+    `, [clean, name.trim(), email?.trim() || null, address?.trim() || null]);
+    res.json({ ok: true });
   } catch(e: any) { res.status(500).json({ error: e.message }); }
 };
 
