@@ -343,12 +343,27 @@ export const getCustomerProfile = async (rawPhone: string, email?: string | null
 
     let customer: any = null;
 
-    // 1. Search by email first — most Shopify online-store customers are email-based
+    // 1. Search by email first — direct filter is more reliable than search endpoint
     if (email && email.includes('@')) {
-      const { data } = await api.get('/customers/search.json', {
-        params: { query: `email:${email}`, limit: 1 },
-      }).catch(() => ({ data: { customers: [] } }));
-      if (data.customers?.length) customer = data.customers[0];
+      // Try direct email filter first (exact match)
+      const r1 = await api.get('/customers.json', {
+        params: { email: email.toLowerCase().trim(), limit: 1 },
+      }).catch((e: any) => { console.warn('[Shopify] email direct lookup failed:', e.message); return { data: { customers: [] } }; });
+      if (r1.data.customers?.length) {
+        customer = r1.data.customers[0];
+        console.log('[Shopify] Found customer by email direct:', customer.email);
+      }
+
+      // Fallback: search endpoint (catches partial / case differences)
+      if (!customer) {
+        const r2 = await api.get('/customers/search.json', {
+          params: { query: `email:${email.trim()}`, limit: 5 },
+        }).catch((e: any) => { console.warn('[Shopify] email search failed:', e.message); return { data: { customers: [] } }; });
+        if (r2.data.customers?.length) {
+          customer = r2.data.customers[0];
+          console.log('[Shopify] Found customer by email search:', customer.email);
+        }
+      }
     }
 
     // 2. Search by phone (multiple formats) if email didn't match

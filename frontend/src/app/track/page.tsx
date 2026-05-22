@@ -69,9 +69,11 @@ export default function TrackPage() {
     } finally { setLoading(false); }
   }
 
-  const totalSpent   = (orders || []).reduce((s, o) => s + (o.total_kobo || 0), 0);
   const orderCount   = (orders || []).length;
   const displayName  = profile?.name || (orders?.[0] as any)?.customer_name || '';
+  const lastOrderDate = orderCount > 0
+    ? new Date((orders as Order[])[0].created_at).toLocaleDateString('en-NG', { day:'numeric', month:'short', year:'numeric' })
+    : null;
 
   return (
     <div style={{ minHeight:'100dvh', background:'#0D001A', display:'flex', justifyContent:'center' }}>
@@ -184,9 +186,9 @@ export default function TrackPage() {
                   <div style={{ padding:'14px 16px',borderRadius:16,background:'rgba(255,255,255,0.04)',border:'1px solid rgba(255,255,255,0.07)',textAlign:'center' }}>
                     <div style={{ display:'flex',alignItems:'center',justifyContent:'center',gap:6,marginBottom:4 }}>
                       <Star size={14} color="#F59E0B" />
-                      <span style={{ color:'rgba(255,255,255,0.45)',fontSize:11,fontWeight:600,textTransform:'uppercase',letterSpacing:.5 }}>Spent</span>
+                      <span style={{ color:'rgba(255,255,255,0.45)',fontSize:11,fontWeight:600,textTransform:'uppercase',letterSpacing:.5 }}>Last Order</span>
                     </div>
-                    <p style={{ color:'#F59E0B',fontWeight:900,fontSize:18,margin:0 }}>{fmt(totalSpent)}</p>
+                    <p style={{ color:'#F59E0B',fontWeight:800,fontSize:13,margin:0,lineHeight:1.3 }}>{lastOrderDate}</p>
                   </div>
                 </div>
               )}
@@ -195,8 +197,10 @@ export default function TrackPage() {
               {orderCount === 0 && (
                 <div style={{ textAlign:'center',padding:'36px 0' }}>
                   <span style={{ fontSize:48 }}>📦</span>
-                  <p style={{ color:'rgba(255,255,255,0.45)',fontSize:15,marginTop:12 }}>No orders found for this number</p>
-                  <p style={{ color:'rgba(255,255,255,0.25)',fontSize:13,marginTop:4 }}>Try the exact number you used when ordering</p>
+                  <p style={{ color:'rgba(255,255,255,0.45)',fontSize:15,marginTop:12 }}>No orders found</p>
+                  <p style={{ color:'rgba(255,255,255,0.25)',fontSize:13,marginTop:4,lineHeight:1.6 }}>
+                    Try the phone number or email<br/>you used when ordering on OjaOba
+                  </p>
                 </div>
               )}
 
