@@ -330,10 +330,10 @@ export const decrementInventory = async (shopifyId: string, qty: number) =>
   db.query(`UPDATE products SET inventory=GREATEST(0,COALESCE(inventory,0)-$1), available=CASE WHEN GREATEST(0,COALESCE(inventory,0)-$1)>0 THEN true ELSE false END WHERE shopify_id=$2`, [qty, shopifyId]).catch(()=>{});
 
 /**
- * Look up a customer by phone in Shopify and return their profile + full order history.
- * Tries multiple phone formats (+234XXXXXXXXXX, 0XXXXXXXXXX, etc.)
+ * Look up a Shopify customer by phone AND/OR email and return their full profile + order history.
+ * Tries multiple phone formats. Email is the primary identifier for existing online-store customers.
  */
-export const getCustomerProfile = async (rawPhone: string): Promise<{
+export const getCustomerProfile = async (rawPhone: string, email?: string | null): Promise<{
   found: boolean; name: string; email: string | null;
   shopifyOrders: any[]; shopifyCustomerId: string | null;
 } | null> => {
@@ -341,27 +341,35 @@ export const getCustomerProfile = async (rawPhone: string): Promise<{
     const api = shopify();
     const digits = rawPhone.replace(/\D/g, '');
 
-    // Build candidate phone formats to try
-    const phones: string[] = [];
-    if (digits.startsWith('0')) {
-      phones.push(`+234${digits.slice(1)}`);
-      phones.push(`234${digits.slice(1)}`);
-    } else if (digits.startsWith('234')) {
-      phones.push(`+${digits}`);
-      phones.push(`0${digits.slice(3)}`);
-    } else {
-      phones.push(`+234${digits}`);
-      phones.push(`+${digits}`);
-    }
-    phones.push(digits);
-
     let customer: any = null;
-    for (const ph of phones) {
+
+    // 1. Search by email first — most Shopify online-store customers are email-based
+    if (email && email.includes('@')) {
       const { data } = await api.get('/customers/search.json', {
-        params: { query: `phone:${ph}`, limit: 1 },
+        params: { query: `email:${email}`, limit: 1 },
       }).catch(() => ({ data: { customers: [] } }));
-      if (data.customers?.length) { customer = data.customers[0]; break; }
+      if (data.customers?.length) customer = data.customers[0];
     }
+
+    // 2. Search by phone (multiple formats) if email didn't match
+    if (!customer && digits.length >= 7) {
+      const phones: string[] = [];
+      if (digits.startsWith('0')) {
+        phones.push(`+234${digits.slice(1)}`, `234${digits.slice(1)}`);
+      } else if (digits.startsWith('234')) {
+        phones.push(`+${digits}`, `0${digits.slice(3)}`);
+      } else {
+        phones.push(`+234${digits}`, `+${digits}`);
+      }
+      phones.push(digits);
+      for (const ph of phones) {
+        const { data } = await api.get('/customers/search.json', {
+          params: { query: `phone:${ph}`, limit: 1 },
+        }).catch(() => ({ data: { customers: [] } }));
+        if (data.customers?.length) { customer = data.customers[0]; break; }
+      }
+    }
+
     if (!customer) return { found: false, name: '', email: null, shopifyOrders: [], shopifyCustomerId: null };
 
     // Fetch their Shopify orders

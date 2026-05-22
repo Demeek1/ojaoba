@@ -1,7 +1,7 @@
 'use client';
 import { useState } from 'react';
 import Link from 'next/link';
-import { Phone, ArrowLeft, Package, ChevronDown, ChevronUp, Search, User, ShoppingBag, Star } from 'lucide-react';
+import { Phone, ArrowLeft, ChevronDown, ChevronUp, Search, User, ShoppingBag, Star, Mail } from 'lucide-react';
 import { fmt } from '@/lib/api';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
@@ -37,6 +37,7 @@ function initials(name: string) {
 
 export default function TrackPage() {
   const [phone, setPhone]       = useState('');
+  const [email, setEmail]       = useState('');
   const [orders, setOrders]     = useState<Order[] | null>(null);
   const [profile, setProfile]   = useState<Profile | null>(null);
   const [loading, setLoading]   = useState(false);
@@ -47,10 +48,18 @@ export default function TrackPage() {
   async function search(e: React.FormEvent) {
     e.preventDefault();
     const clean = phone.replace(/\D/g, '');
-    if (clean.length < 7) { setError('Enter a valid phone number'); return; }
+    const cleanEmail = email.trim();
+    if (clean.length < 7 && !cleanEmail.includes('@')) {
+      setError('Enter a phone number or email address');
+      return;
+    }
     setError(''); setLoading(true); setSearched(false);
     try {
-      const res  = await fetch(`${API_URL}/whatsapp/orders/track?phone=${clean}`);
+      const params = new URLSearchParams();
+      if (clean.length >= 7) params.set('phone', clean);
+      else params.set('phone', '0000000'); // placeholder so backend doesn't error
+      if (cleanEmail.includes('@')) params.set('email', cleanEmail);
+      const res  = await fetch(`${API_URL}/whatsapp/orders/track?${params.toString()}`);
       const data = await res.json();
       setOrders(data.orders || []);
       setProfile(data.customer || null);
@@ -96,20 +105,43 @@ export default function TrackPage() {
               </div>
 
               <form onSubmit={search}>
-                <div style={{ display:'flex', gap:10 }}>
-                  <div style={{ position:'relative', flex:1 }}>
+                <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+                  {/* Phone field */}
+                  <div style={{ position:'relative' }}>
                     <div style={{ position:'absolute', left:13, top:'50%', transform:'translateY(-50%)', pointerEvents:'none' }}>
                       <Phone size={16} color="rgba(255,255,255,0.3)" />
                     </div>
                     <input
                       type="tel" value={phone}
                       onChange={e => setPhone(e.target.value)}
-                      placeholder="e.g. 08012345678"
+                      placeholder="Phone number e.g. 08012345678"
                       style={{ width:'100%',padding:'14px 14px 14px 40px',borderRadius:14,background:'rgba(255,255,255,0.06)',border:`1.5px solid ${error?'#EF4444':'rgba(255,255,255,0.12)'}`,color:'white',fontSize:15,outline:'none' }}
                     />
                   </div>
-                  <button type="submit" disabled={loading} style={{ padding:'0 20px',borderRadius:14,background:'linear-gradient(135deg,#F59E0B,#D97706)',border:'none',cursor:loading?'wait':'pointer',display:'flex',alignItems:'center',gap:6,fontWeight:800,fontSize:14,color:'#000',flexShrink:0,boxShadow:'0 4px 16px rgba(245,158,11,0.35)' }}>
-                    {loading ? '…' : <><Search size={16} /> Find</>}
+
+                  {/* Divider */}
+                  <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+                    <div style={{ flex:1, height:1, background:'rgba(255,255,255,0.07)' }} />
+                    <span style={{ color:'rgba(255,255,255,0.25)', fontSize:12, fontWeight:600 }}>OR</span>
+                    <div style={{ flex:1, height:1, background:'rgba(255,255,255,0.07)' }} />
+                  </div>
+
+                  {/* Email field */}
+                  <div style={{ position:'relative' }}>
+                    <div style={{ position:'absolute', left:13, top:'50%', transform:'translateY(-50%)', pointerEvents:'none' }}>
+                      <Mail size={16} color="rgba(255,255,255,0.3)" />
+                    </div>
+                    <input
+                      type="email" value={email}
+                      onChange={e => setEmail(e.target.value)}
+                      placeholder="Email used on OjaOba website"
+                      style={{ width:'100%',padding:'14px 14px 14px 40px',borderRadius:14,background:'rgba(255,255,255,0.06)',border:`1.5px solid ${error?'#EF4444':'rgba(255,255,255,0.12)'}`,color:'white',fontSize:15,outline:'none' }}
+                    />
+                  </div>
+
+                  {/* Submit */}
+                  <button type="submit" disabled={loading} style={{ padding:'14px 20px',borderRadius:14,background:'linear-gradient(135deg,#F59E0B,#D97706)',border:'none',cursor:loading?'wait':'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:8,fontWeight:800,fontSize:15,color:'#000',boxShadow:'0 4px 16px rgba(245,158,11,0.35)' }}>
+                    {loading ? 'Searching…' : <><Search size={17} /> Find My Account</>}
                   </button>
                 </div>
                 {error && <p style={{ color:'#F87171',fontSize:12,marginTop:8 }}>{error}</p>}
@@ -130,10 +162,10 @@ export default function TrackPage() {
                 </div>
                 {displayName && <h2 style={{ color:'white',fontWeight:800,fontSize:20,margin:'0 0 4px' }}>{displayName}</h2>}
                 {profile?.email && <p style={{ color:'rgba(255,255,255,0.4)',fontSize:13,margin:'0 0 4px' }}>{profile.email}</p>}
-                <p style={{ color:'rgba(255,255,255,0.3)',fontSize:13,margin:0 }}>{phone}</p>
+                {phone.replace(/\D/g,'').length >= 7 && <p style={{ color:'rgba(255,255,255,0.3)',fontSize:13,margin:0 }}>{phone}</p>}
 
                 {/* Switch account */}
-                <button onClick={() => { setSearched(false); setOrders(null); setProfile(null); }}
+                <button onClick={() => { setSearched(false); setOrders(null); setProfile(null); setPhone(''); setEmail(''); }}
                   style={{ marginTop:10,padding:'5px 14px',borderRadius:20,background:'rgba(255,255,255,0.06)',border:'1px solid rgba(255,255,255,0.12)',color:'rgba(255,255,255,0.45)',fontSize:12,cursor:'pointer' }}>
                   Not you? Switch
                 </button>

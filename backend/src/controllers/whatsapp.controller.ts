@@ -313,7 +313,8 @@ export const trackOrders = async (req: Request, res: Response) => {
     ]);
 
     // 2. Shopify customer profile + their direct Shopify orders
-    const profile = await shopify.getCustomerProfile(phone).catch(() => null);
+    const email = String(req.query.email || '').trim() || null;
+    const profile = await shopify.getCustomerProfile(phone, email).catch(() => null);
 
     // 3. Merge — deduplicate by shopify_order_id
     const localShopifyIds = new Set(localOrders.map((o: any) => o.shopify_order_id).filter(Boolean));
