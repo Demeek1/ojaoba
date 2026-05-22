@@ -328,3 +328,73 @@ export const createShopifyOrder = async (order: {
 
 export const decrementInventory = async (shopifyId: string, qty: number) =>
   db.query(`UPDATE products SET inventory=GREATEST(0,COALESCE(inventory,0)-$1), available=CASE WHEN GREATEST(0,COALESCE(inventory,0)-$1)>0 THEN true ELSE false END WHERE shopify_id=$2`, [qty, shopifyId]).catch(()=>{});
+
+/**
+ * Look up a customer by phone in Shopify and return their profile + full order history.
+ * Tries multiple phone formats (+234XXXXXXXXXX, 0XXXXXXXXXX, etc.)
+ */
+export const getCustomerProfile = async (rawPhone: string): Promise<{
+  found: boolean; name: string; email: string | null;
+  shopifyOrders: any[]; shopifyCustomerId: string | null;
+} | null> => {
+  try {
+    const api = shopify();
+    const digits = rawPhone.replace(/\D/g, '');
+
+    // Build candidate phone formats to try
+    const phones: string[] = [];
+    if (digits.startsWith('0')) {
+      phones.push(`+234${digits.slice(1)}`);
+      phones.push(`234${digits.slice(1)}`);
+    } else if (digits.startsWith('234')) {
+      phones.push(`+${digits}`);
+      phones.push(`0${digits.slice(3)}`);
+    } else {
+      phones.push(`+234${digits}`);
+      phones.push(`+${digits}`);
+    }
+    phones.push(digits);
+
+    let customer: any = null;
+    for (const ph of phones) {
+      const { data } = await api.get('/customers/search.json', {
+        params: { query: `phone:${ph}`, limit: 1 },
+      }).catch(() => ({ data: { customers: [] } }));
+      if (data.customers?.length) { customer = data.customers[0]; break; }
+    }
+    if (!customer) return { found: false, name: '', email: null, shopifyOrders: [], shopifyCustomerId: null };
+
+    // Fetch their Shopify orders
+    const { data: ordData } = await api.get('/orders.json', {
+      params: { customer_id: customer.id, status: 'any', limit: 50 },
+    }).catch(() => ({ data: { orders: [] } }));
+
+    const shopifyOrders = (ordData.orders || []).map((o: any) => ({
+      id: String(o.id),
+      name: o.name,
+      status: o.fulfillment_status || o.financial_status || 'pending',
+      total_kobo: toKobo(o.total_price),
+      created_at: o.created_at,
+      items: (o.line_items || []).map((li: any) => ({
+        title: li.title,
+        quantity: li.quantity,
+        priceKobo: toKobo(li.price),
+      })),
+      delivery_address: o.shipping_address
+        ? [o.shipping_address.address1, o.shipping_address.city].filter(Boolean).join(', ')
+        : '',
+      source: 'shopify',
+    }));
+
+    return {
+      found: true,
+      name: `${customer.first_name || ''} ${customer.last_name || ''}`.trim(),
+      email: customer.email || null,
+      shopifyOrders,
+      shopifyCustomerId: String(customer.id),
+    };
+  } catch (e: any) {
+    console.warn('[Shopify] getCustomerProfile failed:', e.message);
+    return null;
+  }
+};

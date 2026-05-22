@@ -3,7 +3,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
-import { ShoppingCart, Plus, Minus, Heart, Bell, X, MessageCircle, Search } from 'lucide-react';
+import { ShoppingCart, Plus, Minus, Heart, User, X, MessageCircle, Search } from 'lucide-react';
 import api, { fmt } from '@/lib/api';
 import { loadCart, saveCart, CartItem } from '@/lib/cart';
 
@@ -208,7 +208,7 @@ export default function HomePage() {
           boxShadow:'0 2px 12px rgba(0,0,0,0.4)',
         }}>
           <Link href="/track" style={{ width:40,height:40,borderRadius:'50%',background:'rgba(255,255,255,0.1)',border:'1.5px solid rgba(255,255,255,0.15)',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer' }}>
-            <Bell size={20} color="#F59E0B" />
+            <User size={20} color="#F59E0B" />
           </Link>
           <img src="/OJAOBA.LOGO.jpg" alt="OjaOba" style={{ height:36, borderRadius:8, objectFit:'contain' }} />
           <button onClick={()=>setCartOpen(true)} style={{

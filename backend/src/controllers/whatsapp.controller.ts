@@ -291,19 +291,52 @@ export const verifyWebOrder = async (req: Request, res: Response) => {
   } catch(e: any) { res.status(500).json({ error: e.message }); }
 };
 
-/** GET /api/whatsapp/orders/track?phone=XXXXXXXXXX — public order history by phone */
+/** GET /api/whatsapp/orders/track?phone=XXXXXXXXXX — public profile + order history */
 export const trackOrders = async (req: Request, res: Response) => {
   try {
-    const phone = String(req.query.phone || '').replace(/\D/g, '');
+    const raw   = String(req.query.phone || '');
+    const phone = raw.replace(/\D/g, '');
     if (phone.length < 7) { res.status(400).json({ error: 'Valid phone number required' }); return; }
-    const { rows } = await db.query(`
+
+    // 1. Our local DB orders (WhatsApp + website)
+    const { rows: localOrders } = await db.query(`
       SELECT id, status, items, subtotal_kobo, delivery_fee_kobo, total_kobo,
              delivery_address, customer_name, source, created_at, shopify_order_id
       FROM orders
-      WHERE phone=$1 AND status != 'PENDING_PAYMENT'
-      ORDER BY created_at DESC LIMIT 20
-    `, [phone]);
-    res.json({ orders: rows });
+      WHERE (phone=$1 OR phone=$2 OR phone=$3)
+        AND status != 'PENDING_PAYMENT'
+      ORDER BY created_at DESC LIMIT 30
+    `, [
+      phone,
+      phone.startsWith('234') ? `0${phone.slice(3)}` : phone,
+      phone.startsWith('0')   ? `234${phone.slice(1)}` : phone,
+    ]);
+
+    // 2. Shopify customer profile + their direct Shopify orders
+    const profile = await shopify.getCustomerProfile(phone).catch(() => null);
+
+    // 3. Merge — deduplicate by shopify_order_id
+    const localShopifyIds = new Set(localOrders.map((o: any) => o.shopify_order_id).filter(Boolean));
+    const extraShopifyOrders = (profile?.shopifyOrders || []).filter(
+      (o: any) => !localShopifyIds.has(o.id)
+    );
+
+    const allOrders = [
+      ...localOrders.map((o: any) => ({
+        ...o,
+        items: typeof o.items === 'string' ? JSON.parse(o.items) : o.items,
+      })),
+      ...extraShopifyOrders,
+    ].sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+    res.json({
+      customer: profile?.found ? {
+        name: profile.name,
+        email: profile.email,
+        shopifyCustomerId: profile.shopifyCustomerId,
+      } : (localOrders[0] ? { name: (localOrders[0] as any).customer_name, email: null } : null),
+      orders: allOrders,
+    });
   } catch(e: any) { res.status(500).json({ error: e.message }); }
 };
 
