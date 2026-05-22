@@ -3,7 +3,7 @@ import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
-import { ShoppingCart, Plus, Minus, Heart, User, X, ChevronLeft, ChevronDown, ChevronUp } from 'lucide-react';
+import { ShoppingCart, Plus, Minus, Heart, User, X, ChevronDown, ChevronUp } from 'lucide-react';
 import api, { fmt } from '@/lib/api';
 import { loadCart, saveCart, CartItem } from '@/lib/cart';
 
@@ -36,8 +36,8 @@ const CAT_IMAGES: Record<string, string> = {
   pasta:'https://images.unsplash.com/photo-1551462147-ff29053bfc14?w=160&h=160&fit=crop&q=70',
   provision:'https://images.unsplash.com/photo-1604719312566-8912e9227c6a?w=160&h=160&fit=crop&q=70',
 };
-const ALL_IMG    = 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=160&h=160&fit=crop&q=70';
-const FALLBACK   = 'https://images.unsplash.com/photo-1506617420156-8e4536971650?w=400&h=400&fit=crop&q=80';
+const ALL_IMG  = 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=160&h=160&fit=crop&q=70';
+const FALLBACK = 'https://images.unsplash.com/photo-1506617420156-8e4536971650?w=400&h=400&fit=crop&q=80';
 const CAT_EMOJIS: Record<string,string> = {
   grains:'🌾',rice:'🍚',vegetables:'🥦',fruits:'🍎',meat:'🥩',fish:'🐟',
   dairy:'🥛',drinks:'🥤',snacks:'🍿',spices:'🌶️',frozen:'❄️',chicken:'🍗',
@@ -90,28 +90,26 @@ function priceRange(p: Product): { min:number; max:number } | null {
   return mn === mx ? null : { min: mn, max: mx };
 }
 
-type ViewMode = 'feed' | 'grid';
-
 export default function HomePage() {
   const router = useRouter();
-  const [cat, setCat]               = useState('');
-  const [favs, setFavs]             = useState<string[]>([]);
-  const [cart, setCartState]        = useState<CartItem[]>([]);
-  const [cartOpen, setCartOpen]     = useState(false);
-  const [viewMode, setViewMode]     = useState<ViewMode>('feed');
+  const [cat, setCat]             = useState('');
+  const [favs, setFavs]           = useState<string[]>([]);
+  const [cart, setCartState]      = useState<CartItem[]>([]);
+  const [cartOpen, setCartOpen]   = useState(false);
   const [variantTarget, setVariantTarget] = useState<Product|null>(null);
   const [expandedDesc, setExpandedDesc]   = useState<Set<string>>(new Set());
-  const [flashAdded, setFlashAdded]       = useState<string>('');
+  const [doubleTapFlash, setDoubleTapFlash] = useState<string>(''); // product id
 
   useEffect(() => { setCartState(loadCart()); }, []);
   function setCart(fn: (p: CartItem[]) => CartItem[]) {
-    setCartState(prev => { const n=fn(prev); saveCart(n); return n; });
+    setCartState(prev => { const n = fn(prev); saveCart(n); return n; });
   }
 
-  const feedRef  = useRef<HTMLDivElement>(null);
-  const touchX   = useRef(0);
-  const touchY   = useRef(0);
-  const swiping  = useRef(false);
+  const feedRef    = useRef<HTMLDivElement>(null);
+  const touchX     = useRef(0);
+  const touchY     = useRef(0);
+  // double-tap tracking per slide
+  const lastTap    = useRef<Record<string, number>>({});
 
   /* ── Data ── */
   const { data: rawCats = [] } = useQuery<string[]>({
@@ -154,7 +152,6 @@ export default function HomePage() {
     nextPage.current = 1;
     feedRef.current?.scrollTo({ top:0, behavior:'instant' as ScrollBehavior });
     fetchPage(1, true);
-    setViewMode('feed');
   }, [cat]); // eslint-disable-line
 
   useEffect(() => {
@@ -170,36 +167,24 @@ export default function HomePage() {
 
   const allCats = useMemo(() => ['', ...rawCats], [rawCats]);
 
-  /* ── Touch / Swipe ── */
+  /* ── Swipe left/right → change category ── */
   function onTouchStart(e: React.TouchEvent) {
     touchX.current = e.touches[0].clientX;
     touchY.current = e.touches[0].clientY;
-    swiping.current = false;
   }
   function onTouchEnd(e: React.TouchEvent) {
     const dx = touchX.current - e.changedTouches[0].clientX;
     const dy = touchY.current - e.changedTouches[0].clientY;
     if (Math.abs(dx) < Math.abs(dy) || Math.abs(dx) < 50) return;
-    if (viewMode === 'feed') {
-      if (dx > 0) {
-        // swipe left → grid
-        setViewMode('grid');
-      } else {
-        // swipe right → prev category
-        const ci = allCats.indexOf(cat);
-        setCat(allCats[(ci-1+allCats.length)%allCats.length]);
-      }
-    } else {
-      // in grid: swipe right → back to feed | swipe left → next cat
-      if (dx < 0) setViewMode('feed');
-      else { const ci=allCats.indexOf(cat); setCat(allCats[(ci+1)%allCats.length]); }
-    }
+    const ci = allCats.indexOf(cat);
+    if (dx > 0) setCat(allCats[(ci+1) % allCats.length]);       // swipe left  → next cat
+    else        setCat(allCats[(ci-1+allCats.length) % allCats.length]); // swipe right → prev cat
   }
 
   /* ── Cart helpers ── */
   const cartCount = cart.reduce((s,c) => s+c.qty, 0);
   const cartTotal = cart.reduce((s,c) => s+c.price_kobo*c.qty, 0);
-  function getQty(id: string) { return cart.find(c=>c.id===id)?.qty??0; }
+  function getQty(id: string) { return cart.find(c=>c.id===id)?.qty ?? 0; }
 
   function addProduct(p: Product, variant?: Variant) {
     const id    = variant ? `${p.id}__${variant.id}` : p.id;
@@ -210,8 +195,6 @@ export default function HomePage() {
       if (ex) return prev.map(c=>c.id===id?{...c,qty:c.qty+1}:c);
       return [...prev,{id,qty:1,title,price_kobo:price,image_url:p.image_url,note:''}];
     });
-    setFlashAdded(id);
-    setTimeout(() => setFlashAdded(''), 600);
   }
 
   function handleAddClick(p: Product) {
@@ -237,6 +220,19 @@ export default function HomePage() {
     });
   }
 
+  /* ── Double-tap → add to cart ── */
+  function handleSlideTap(p: Product) {
+    const now  = Date.now();
+    const last = lastTap.current[p.id] ?? 0;
+    if (now - last < 350) {
+      // double-tap!
+      handleAddClick(p);
+      setDoubleTapFlash(p.id);
+      setTimeout(() => setDoubleTapFlash(''), 900);
+    }
+    lastTap.current[p.id] = now;
+  }
+
   const HEADER_H  = 64;
   const STORIES_H = 96;
   const TOP_H     = HEADER_H + STORIES_H;
@@ -244,12 +240,13 @@ export default function HomePage() {
   return (
     <div style={{ height:'100dvh', background:'#000', display:'flex', justifyContent:'center', overflow:'hidden' }}>
       <div style={{ position:'relative', width:'100%', maxWidth:430, height:'100dvh', overflow:'hidden', background:'#0D001A' }}
-        onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
+        onTouchStart={onTouchStart}
+        onTouchEnd={onTouchEnd}>
 
         {/* ── HEADER ── */}
         <div style={{ position:'absolute',top:0,left:0,right:0,zIndex:50,height:HEADER_H,
-          display:'flex',alignItems:'center',justifyContent:'space-between',
-          padding:'0 16px', background:'#2D0A4E', boxShadow:'0 2px 12px rgba(0,0,0,0.4)' }}>
+          display:'flex',alignItems:'center',justifyContent:'space-between',padding:'0 16px',
+          background:'#2D0A4E',boxShadow:'0 2px 12px rgba(0,0,0,0.4)' }}>
           <Link href="/track" style={{ width:40,height:40,borderRadius:'50%',background:'rgba(255,255,255,0.1)',border:'1.5px solid rgba(255,255,255,0.15)',display:'flex',alignItems:'center',justifyContent:'center' }}>
             <User size={20} color="#F59E0B" />
           </Link>
@@ -260,32 +257,30 @@ export default function HomePage() {
           </button>
         </div>
 
-        {/* ── CATEGORY STORIES (Instagram-style) ── */}
+        {/* ── CATEGORY STORIES ── */}
         <div style={{ position:'absolute',top:HEADER_H,left:0,right:0,zIndex:40,height:STORIES_H,
-          display:'flex',alignItems:'center',gap:0,overflowX:'auto',padding:'0 10px',
-          scrollbarWidth:'none',background:'#2D0A4E',
-          borderBottom:'1px solid rgba(245,158,11,0.12)' }}>
-          {allCats.map((c) => {
+          display:'flex',alignItems:'center',overflowX:'auto',padding:'0 10px',
+          scrollbarWidth:'none',background:'#2D0A4E',borderBottom:'1px solid rgba(245,158,11,0.12)' }}>
+          {allCats.map(c => {
             const name   = c || 'All';
-            const active = cat===c;
+            const active = cat === c;
             return (
-              <button key={c||'all'} onClick={()=>{ setCat(c); setViewMode('feed'); }}
+              <button key={c||'all'} onClick={()=>setCat(c)}
                 style={{ display:'flex',flexDirection:'column',alignItems:'center',gap:5,flexShrink:0,
-                  background:'none',border:'none',cursor:'pointer',padding:'0 8px',width:'calc(25vw - 4px)',maxWidth:100 }}>
-                {/* Circle */}
-                <div style={{ padding:3, borderRadius:'50%',
-                  background: active ? 'linear-gradient(135deg,#F59E0B,#D97706)' : 'rgba(255,255,255,0.12)',
-                  boxShadow: active ? '0 0 16px rgba(245,158,11,0.6)' : 'none',
-                  transition:'all 0.2s' }}>
+                  background:'none',border:'none',cursor:'pointer',padding:'0 8px',
+                  width:'calc(25vw - 4px)',maxWidth:100 }}>
+                <div style={{ padding:3,borderRadius:'50%',
+                  background:active?'linear-gradient(135deg,#F59E0B,#D97706)':'rgba(255,255,255,0.12)',
+                  boxShadow:active?'0 0 16px rgba(245,158,11,0.6)':'none',transition:'all 0.2s' }}>
                   <div style={{ width:62,height:62,borderRadius:'50%',overflow:'hidden',
-                    border: active ? '2.5px solid #2D0A4E' : '2px solid rgba(255,255,255,0.06)' }}>
-                    <img src={catImg(c)} alt={name}
-                      loading="lazy"
+                    border:active?'2.5px solid #2D0A4E':'2px solid rgba(255,255,255,0.06)' }}>
+                    <img src={catImg(c)} alt={name} loading="lazy"
                       style={{ width:'100%',height:'100%',objectFit:'cover' }} />
                   </div>
                 </div>
-                <span style={{ fontSize:10,fontWeight:700,color:active?'#F59E0B':'rgba(255,255,255,0.6)',
-                  maxWidth:'100%',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',letterSpacing:.2 }}>
+                <span style={{ fontSize:10,fontWeight:700,letterSpacing:.2,
+                  color:active?'#F59E0B':'rgba(255,255,255,0.6)',
+                  maxWidth:'100%',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>
                   {name}
                 </span>
               </button>
@@ -293,13 +288,10 @@ export default function HomePage() {
           })}
         </div>
 
-        {/* ── FEED VIEW ── */}
+        {/* ── SNAP-SCROLL FEED ── */}
         <div ref={feedRef}
           style={{ position:'absolute',top:TOP_H,left:0,right:0,bottom:0,
-            overflowY:'scroll',scrollSnapType:'y mandatory',scrollbarWidth:'none',
-            transform:`translateX(${viewMode==='grid'?'-100%':'0'})`,
-            transition:'transform 0.32s cubic-bezier(0.25,0.46,0.45,0.94)',
-          }}>
+            overflowY:'scroll',scrollSnapType:'y mandatory',scrollbarWidth:'none' }}>
 
           {isLoading && (
             <div style={{ height:`calc(100dvh - ${TOP_H}px)`,scrollSnapAlign:'start',display:'flex',alignItems:'center',justifyContent:'center' }}>
@@ -315,78 +307,101 @@ export default function HomePage() {
           )}
 
           {products.map((p, i) => {
-            const cqty    = getQty(p.id);
-            const isFav   = favs.includes(p.id);
-            const soldOut = p.inventory===0;
-            const [g1,g2] = grad(p.category);
-            const range   = priceRange(p);
+            const cqty       = getQty(p.id);
+            const isFav      = favs.includes(p.id);
+            const soldOut    = p.inventory === 0;
+            const [g1,g2]    = grad(p.category);
+            const range      = priceRange(p);
             const isExpanded = expandedDesc.has(p.id);
+            const isFlashing = doubleTapFlash === p.id;
 
             return (
               <div key={p.id}
-                style={{ position:'relative',width:'100%',height:`calc(100dvh - ${TOP_H}px)`,scrollSnapAlign:'start',flexShrink:0,overflow:'hidden' }}>
+                style={{ position:'relative',width:'100%',height:`calc(100dvh - ${TOP_H}px)`,
+                  scrollSnapAlign:'start',flexShrink:0,overflow:'hidden' }}
+                onClick={() => handleSlideTap(p)}>
 
-                {/* ── BACKGROUND IMAGE (no dark overlay) ── */}
+                {/* Blurred background — static, no bob */}
                 {p.image_url ? (
-                  <>
-                    <img src={p.image_url} alt="" aria-hidden
-                      loading={i < 2 ? 'eager' : 'lazy'}
-                      style={{ position:'absolute',inset:0,width:'100%',height:'100%',objectFit:'cover',filter:'blur(24px) saturate(1.2)',transform:'scale(1.08)',zIndex:0 }} />
-                    <img src={p.image_url} alt={p.title}
-                      loading={i < 2 ? 'eager' : 'lazy'}
-                      className={i===0 ? 'swipe-hint' : ''}
-                      style={{ position:'absolute',inset:0,width:'100%',height:'100%',objectFit:'contain',objectPosition:'center 38%',zIndex:1 }} />
-                  </>
+                  <img src={p.image_url} alt="" aria-hidden
+                    loading={i < 2 ? 'eager' : 'lazy'}
+                    style={{ position:'absolute',inset:0,width:'100%',height:'100%',objectFit:'cover',
+                      filter:'blur(24px) saturate(1.2)',transform:'scale(1.08)',zIndex:0 }} />
                 ) : (
-                  <div style={{ position:'absolute',inset:0,background:`linear-gradient(160deg,${g1},${g2},#0D001A)`,display:'flex',alignItems:'center',justifyContent:'center',zIndex:0 }}>
-                    <span style={{ fontSize:120,opacity:0.22 }}>{catEmoji(p.category)}</span>
+                  <div style={{ position:'absolute',inset:0,background:`linear-gradient(160deg,${g1},${g2},#0D001A)`,zIndex:0 }}>
+                    <span style={{ position:'absolute',top:'50%',left:'50%',transform:'translate(-50%,-50%)',fontSize:120,opacity:.18 }}>{catEmoji(p.category)}</span>
                   </div>
                 )}
 
-                {/* Only a bottom gradient for text readability */}
-                <div style={{ position:'absolute',bottom:0,left:0,right:0,height:'52%',background:'linear-gradient(to top,rgba(0,0,0,0.88) 0%,rgba(0,0,0,0.5) 55%,transparent 100%)',zIndex:2 }} />
+                {/* Product image — bobs up and down on first card to hint scroll */}
+                {p.image_url && (
+                  <img src={p.image_url} alt={p.title}
+                    loading={i < 2 ? 'eager' : 'lazy'}
+                    className={i === 0 ? 'img-float' : ''}
+                    style={{ position:'absolute',inset:0,width:'100%',height:'100%',
+                      objectFit:'contain',objectPosition:'center 38%',zIndex:1 }} />
+                )}
 
-                {/* Swipe-left hint badge (first card only) */}
-                {i===0 && (
-                  <div style={{ position:'absolute',top:'50%',right:10,transform:'translateY(-50%)',zIndex:5,display:'flex',alignItems:'center',gap:3,padding:'5px 9px',borderRadius:20,background:'rgba(0,0,0,0.45)',backdropFilter:'blur(8px)',border:'1px solid rgba(255,255,255,0.15)',animation:'hint-pulse 3.5s ease-in-out 2s infinite' }}>
-                    <span style={{ color:'rgba(255,255,255,0.7)',fontSize:11,fontWeight:600 }}>Grid</span>
-                    <span style={{ color:'rgba(255,255,255,0.5)',fontSize:14 }}>›</span>
+                {/* Bottom gradient for text readability only */}
+                <div style={{ position:'absolute',bottom:0,left:0,right:0,height:'50%',
+                  background:'linear-gradient(to top,rgba(0,0,0,0.88) 0%,rgba(0,0,0,0.45) 55%,transparent 100%)',zIndex:2 }} />
+
+                {/* ── Double-tap heart flash ── */}
+                {isFlashing && (
+                  <div style={{ position:'absolute',inset:0,zIndex:20,display:'flex',alignItems:'center',justifyContent:'center',pointerEvents:'none' }}>
+                    <div style={{ animation:'heart-pop 0.9s ease-out forwards' }}>
+                      <span style={{ fontSize:90 }}>❤️</span>
+                    </div>
                   </div>
                 )}
 
                 {/* ── RIGHT ACTIONS ── */}
-                <div style={{ position:'absolute',right:12,bottom:140,zIndex:10,display:'flex',flexDirection:'column',alignItems:'center',gap:14 }}>
+                <div style={{ position:'absolute',right:12,bottom:140,zIndex:10,
+                  display:'flex',flexDirection:'column',alignItems:'center',gap:14 }}>
+
                   {/* Cart */}
                   <div style={{ display:'flex',flexDirection:'column',alignItems:'center',gap:4 }}>
-                    <button onClick={()=>setCartOpen(true)} style={{ position:'relative',width:52,height:52,borderRadius:'50%',border:'2px solid #F59E0B',background:'rgba(245,158,11,0.22)',backdropFilter:'blur(12px)',boxShadow:'0 0 18px rgba(245,158,11,0.4)',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center' }}>
+                    <button onClick={e=>{e.stopPropagation();setCartOpen(true);}}
+                      style={{ position:'relative',width:52,height:52,borderRadius:'50%',
+                        border:'2px solid #F59E0B',background:'rgba(245,158,11,0.22)',
+                        backdropFilter:'blur(12px)',boxShadow:'0 0 18px rgba(245,158,11,0.4)',
+                        cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center' }}>
                       <ShoppingCart size={22} color="#F59E0B" />
                       {cartCount>0&&<span style={{ position:'absolute',top:-4,right:-4,minWidth:18,height:18,padding:'0 4px',borderRadius:9,background:'#EF4444',color:'white',fontSize:10,fontWeight:700,display:'flex',alignItems:'center',justifyContent:'center' }}>{cartCount}</span>}
                     </button>
                     {cartCount===0&&<span style={{ color:'rgba(255,255,255,0.7)',fontSize:10,fontWeight:600,letterSpacing:.4 }}>Cart</span>}
                   </div>
 
-                  {/* ADD */}
+                  {/* ADD / qty */}
                   <div style={{ display:'flex',flexDirection:'column',alignItems:'center',gap:4 }}>
-                    <button disabled={soldOut} onClick={()=>handleAddClick(p)}
+                    <button disabled={soldOut}
+                      onClick={e=>{e.stopPropagation();handleAddClick(p);}}
                       style={{ width:52,height:52,borderRadius:'50%',
-                        border:`1.5px solid ${soldOut?'rgba(255,255,255,0.08)':flashAdded.startsWith(p.id)?'#10B981':'rgba(255,255,255,0.28)'}`,
-                        background:soldOut?'rgba(255,255,255,0.04)':flashAdded.startsWith(p.id)?'rgba(16,185,129,0.25)':'rgba(0,0,0,0.5)',
+                        border:`1.5px solid ${soldOut?'rgba(255,255,255,0.08)':'rgba(255,255,255,0.28)'}`,
+                        background:soldOut?'rgba(255,255,255,0.04)':'rgba(0,0,0,0.5)',
                         backdropFilter:'blur(10px)',cursor:soldOut?'not-allowed':'pointer',
                         display:'flex',alignItems:'center',justifyContent:'center',
-                        opacity:soldOut?0.35:1,transition:'all 0.18s',
-                        transform:flashAdded.startsWith(p.id)?'scale(1.15)':'scale(1)',
+                        opacity:soldOut?0.35:1,transition:'transform 0.1s',
+                        transform:'scale(1)',
                       }}>
-                      <Plus size={24} color={flashAdded.startsWith(p.id)?'#10B981':'white'} />
+                      <Plus size={24} color="white" />
                     </button>
-                    <span style={{ color:cqty>0?'#F59E0B':'rgba(255,255,255,0.6)',fontSize:cqty>0?15:10,fontWeight:cqty>0?700:600,letterSpacing:.4 }}>
-                      {cqty>0 ? cqty : 'Add'}
+                    {/* shows "Add" when 0, shows count in gold when > 0 */}
+                    <span style={{ color:cqty>0?'#F59E0B':'rgba(255,255,255,0.6)',
+                      fontSize:cqty>0?16:10,fontWeight:cqty>0?800:600,letterSpacing:.3 }}>
+                      {cqty > 0 ? cqty : 'Add'}
                     </span>
                   </div>
 
                   {/* Minus */}
                   <div style={{ display:'flex',flexDirection:'column',alignItems:'center',gap:4 }}>
-                    <button onClick={()=>decrement(p.id)} disabled={cqty===0}
-                      style={{ width:52,height:52,borderRadius:'50%',border:'1.5px solid rgba(255,255,255,0.2)',background:'rgba(0,0,0,0.5)',backdropFilter:'blur(10px)',cursor:cqty===0?'not-allowed':'pointer',display:'flex',alignItems:'center',justifyContent:'center',opacity:cqty===0?0.3:1,transition:'opacity 0.15s' }}>
+                    <button disabled={cqty===0}
+                      onClick={e=>{e.stopPropagation();decrement(p.id);}}
+                      style={{ width:52,height:52,borderRadius:'50%',
+                        border:'1.5px solid rgba(255,255,255,0.2)',background:'rgba(0,0,0,0.5)',
+                        backdropFilter:'blur(10px)',cursor:cqty===0?'not-allowed':'pointer',
+                        display:'flex',alignItems:'center',justifyContent:'center',
+                        opacity:cqty===0?0.3:1,transition:'opacity 0.15s' }}>
                       <Minus size={22} color="white" />
                     </button>
                     <span style={{ color:'rgba(255,255,255,0.3)',fontSize:10 }}>Less</span>
@@ -394,8 +409,12 @@ export default function HomePage() {
 
                   {/* Heart */}
                   <div style={{ display:'flex',flexDirection:'column',alignItems:'center',gap:4 }}>
-                    <button onClick={()=>setFavs(f=>f.includes(p.id)?f.filter(x=>x!==p.id):[...f,p.id])}
-                      style={{ width:52,height:52,borderRadius:'50%',border:`1.5px solid ${isFav?'#EF4444':'rgba(255,255,255,0.2)'}`,background:isFav?'rgba(239,68,68,0.2)':'rgba(0,0,0,0.5)',backdropFilter:'blur(10px)',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',transition:'all 0.2s' }}>
+                    <button onClick={e=>{e.stopPropagation();setFavs(f=>f.includes(p.id)?f.filter(x=>x!==p.id):[...f,p.id]);}}
+                      style={{ width:52,height:52,borderRadius:'50%',
+                        border:`1.5px solid ${isFav?'#EF4444':'rgba(255,255,255,0.2)'}`,
+                        background:isFav?'rgba(239,68,68,0.2)':'rgba(0,0,0,0.5)',
+                        backdropFilter:'blur(10px)',cursor:'pointer',
+                        display:'flex',alignItems:'center',justifyContent:'center',transition:'all 0.2s' }}>
                       <Heart size={22} color={isFav?'#EF4444':'white'} fill={isFav?'#EF4444':'none'} />
                     </button>
                     <span style={{ color:'rgba(255,255,255,0.3)',fontSize:10 }}>Save</span>
@@ -404,26 +423,30 @@ export default function HomePage() {
 
                 {/* ── BOTTOM INFO ── */}
                 <div style={{ position:'absolute',bottom:0,left:0,right:72,padding:'0 14px 24px',zIndex:10 }}>
-                  <div style={{ display:'inline-block',padding:'3px 10px',borderRadius:20,marginBottom:7,background:`linear-gradient(135deg,${g1},${g2})`,fontSize:11,fontWeight:700,color:'white' }}>
+                  <div style={{ display:'inline-block',padding:'3px 10px',borderRadius:20,marginBottom:7,
+                    background:`linear-gradient(135deg,${g1},${g2})`,fontSize:11,fontWeight:700,color:'white' }}>
                     {p.category}
                   </div>
                   <div style={{ display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:8,marginBottom:5 }}>
                     <h2 style={{ color:'white',fontWeight:800,fontSize:17,lineHeight:1.3,margin:0,flex:1 }}>{p.title}</h2>
                     <div style={{ flexShrink:0,textAlign:'right' }}>
                       {range ? (
-                        <div style={{ color:'#F59E0B',fontWeight:900,fontSize:14,lineHeight:1.3 }}>
-                          {fmt(range.min)}<br/><span style={{ fontSize:11,opacity:.7 }}>– {fmt(range.max)}</span>
+                        <div style={{ color:'#F59E0B',fontWeight:900,fontSize:14,lineHeight:1.4 }}>
+                          {fmt(range.min)}<br/>
+                          <span style={{ fontSize:11,opacity:.75 }}>– {fmt(range.max)}</span>
                         </div>
                       ) : (
-                        <div style={{ color:'#F59E0B',fontWeight:900,fontSize:20 }}>{fmt(p.price_kobo)}</div>
-                      )}
-                      {!range && p.compare_price_kobo && p.compare_price_kobo>p.price_kobo && (
-                        <div style={{ color:'rgba(255,255,255,0.3)',fontSize:12,textDecoration:'line-through' }}>{fmt(p.compare_price_kobo)}</div>
+                        <>
+                          <div style={{ color:'#F59E0B',fontWeight:900,fontSize:20 }}>{fmt(p.price_kobo)}</div>
+                          {p.compare_price_kobo && p.compare_price_kobo>p.price_kobo && (
+                            <div style={{ color:'rgba(255,255,255,0.3)',fontSize:12,textDecoration:'line-through' }}>{fmt(p.compare_price_kobo)}</div>
+                          )}
+                        </>
                       )}
                     </div>
                   </div>
 
-                  {/* Description with MORE toggle */}
+                  {/* Description + MORE toggle */}
                   {p.description && (
                     <div style={{ marginBottom:6 }}>
                       <p style={{ color:'rgba(255,255,255,0.6)',fontSize:13,lineHeight:1.5,margin:0,
@@ -431,8 +454,9 @@ export default function HomePage() {
                         {p.description}
                       </p>
                       {p.description.length > 100 && (
-                        <button onClick={()=>toggleDesc(p.id)}
-                          style={{ background:'none',border:'none',color:'#F59E0B',fontSize:12,fontWeight:700,cursor:'pointer',padding:'3px 0 0',display:'flex',alignItems:'center',gap:3 }}>
+                        <button onClick={e=>{e.stopPropagation();toggleDesc(p.id);}}
+                          style={{ background:'none',border:'none',color:'#F59E0B',fontSize:12,fontWeight:700,
+                            cursor:'pointer',padding:'3px 0 0',display:'flex',alignItems:'center',gap:3 }}>
                           {isExpanded ? <><ChevronUp size={13}/> Less</> : <><ChevronDown size={13}/> More</>}
                         </button>
                       )}
@@ -440,12 +464,16 @@ export default function HomePage() {
                   )}
 
                   {soldOut && <span style={{ color:'#F87171',fontSize:12,fontWeight:600 }}>⚠ Out of stock</span>}
-                  {!soldOut && p.inventory>0 && p.inventory<=5 && <span style={{ color:'#FB923C',fontSize:12,fontWeight:600 }}>Only {p.inventory} left!</span>}
+                  {!soldOut && p.inventory>0 && p.inventory<=5 && (
+                    <span style={{ color:'#FB923C',fontSize:12,fontWeight:600 }}>Only {p.inventory} left!</span>
+                  )}
                 </div>
 
-                {/* Scroll hint (first card) */}
+                {/* Scroll hint on first card */}
                 {i===0 && products.length>1 && (
-                  <div style={{ position:'absolute',bottom:6,left:'50%',transform:'translateX(-50%)',display:'flex',flexDirection:'column',alignItems:'center',gap:2,opacity:0.35,animation:'bounce 2s ease-in-out infinite',zIndex:10 }}>
+                  <div style={{ position:'absolute',bottom:8,left:'50%',transform:'translateX(-50%)',
+                    display:'flex',flexDirection:'column',alignItems:'center',gap:2,
+                    opacity:0.38,animation:'bounce 2s ease-in-out infinite',zIndex:10,pointerEvents:'none' }}>
                     <div style={{ width:1.5,height:14,background:'white',borderRadius:1 }} />
                     <span style={{ color:'white',fontSize:8,letterSpacing:1 }}>SCROLL</span>
                   </div>
@@ -461,93 +489,27 @@ export default function HomePage() {
           )}
         </div>
 
-        {/* ── GRID VIEW (slides in from right) ── */}
-        <div style={{ position:'absolute',top:TOP_H,left:0,right:0,bottom:0,zIndex:15,
-          background:'#0D001A',overflowY:'auto',scrollbarWidth:'none',
-          transform:`translateX(${viewMode==='grid'?'0':'100%'})`,
-          transition:'transform 0.32s cubic-bezier(0.25,0.46,0.45,0.94)' }}>
-
-          {/* Grid header */}
-          <div style={{ position:'sticky',top:0,zIndex:5,display:'flex',alignItems:'center',gap:10,padding:'12px 14px',background:'rgba(13,0,26,0.97)',backdropFilter:'blur(12px)',borderBottom:'1px solid rgba(255,255,255,0.06)' }}>
-            <button onClick={()=>setViewMode('feed')}
-              style={{ width:34,height:34,borderRadius:'50%',background:'rgba(255,255,255,0.08)',border:'none',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center' }}>
-              <ChevronLeft size={18} color="white" />
-            </button>
-            <span style={{ color:'white',fontWeight:700,fontSize:15,flex:1 }}>
-              {cat || 'All Products'}
-            </span>
-            <span style={{ color:'rgba(255,255,255,0.35)',fontSize:12 }}>{products.length} items</span>
-          </div>
-
-          {/* 3-column grid */}
-          <div style={{ display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:8,padding:'10px 10px 24px' }}>
-            {(isLoading ? [] : products).map(p => {
-              const cqty    = getQty(p.id);
-              const soldOut = p.inventory===0;
-              const [g1,g2] = grad(p.category);
-              const range   = priceRange(p);
-              const cardH   = `calc((100dvh - ${TOP_H}px - 60px) / 2)`;
-
-              return (
-                <div key={p.id} style={{ borderRadius:14,overflow:'hidden',background:'rgba(255,255,255,0.04)',border:'1px solid rgba(255,255,255,0.07)',display:'flex',flexDirection:'column',height:cardH,maxHeight:220 }}>
-                  {/* Image */}
-                  <div style={{ flex:1,position:'relative',overflow:'hidden',background:p.image_url?'transparent':`linear-gradient(135deg,${g1},${g2})`,minHeight:0 }}>
-                    {p.image_url
-                      ? <img src={p.image_url} alt={p.title} loading="lazy" style={{ width:'100%',height:'100%',objectFit:'cover' }} />
-                      : <div style={{ width:'100%',height:'100%',display:'flex',alignItems:'center',justifyContent:'center' }}><span style={{ fontSize:36 }}>{catEmoji(p.category)}</span></div>
-                    }
-                    {soldOut && <div style={{ position:'absolute',inset:0,background:'rgba(0,0,0,0.55)',display:'flex',alignItems:'center',justifyContent:'center' }}><span style={{ color:'#F87171',fontSize:10,fontWeight:700 }}>Sold Out</span></div>}
-                  </div>
-                  {/* Info + ADD */}
-                  <div style={{ padding:'7px 8px 8px',background:'rgba(255,255,255,0.03)' }}>
-                    <p style={{ color:'white',fontSize:11,fontWeight:600,margin:'0 0 3px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',lineHeight:1.3 }}>{p.title}</p>
-                    <div style={{ display:'flex',alignItems:'center',justifyContent:'space-between',gap:4 }}>
-                      <span style={{ color:'#F59E0B',fontWeight:800,fontSize:11 }}>
-                        {range ? `${fmt(range.min)}+` : fmt(p.price_kobo)}
-                      </span>
-                      <button disabled={soldOut} onClick={()=>handleAddClick(p)}
-                        style={{ display:'flex',flexDirection:'column',alignItems:'center',gap:1,padding:'4px 6px',borderRadius:8,background:cqty>0?'rgba(245,158,11,0.2)':'rgba(255,255,255,0.1)',border:`1px solid ${cqty>0?'rgba(245,158,11,0.4)':'rgba(255,255,255,0.12)'}`,cursor:soldOut?'not-allowed':'pointer',opacity:soldOut?0.3:1,transition:'all 0.15s' }}>
-                        <Plus size={13} color={cqty>0?'#F59E0B':'white'} />
-                        <span style={{ color:cqty>0?'#F59E0B':'rgba(255,255,255,0.7)',fontSize:8,fontWeight:700,letterSpacing:.3 }}>
-                          {cqty>0?cqty:'ADD'}
-                        </span>
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
-          {isLoading && (
-            <div style={{ display:'flex',justifyContent:'center',padding:32 }}>
-              <div style={{ width:32,height:32,border:'3px solid rgba(245,158,11,0.15)',borderTop:'3px solid #F59E0B',borderRadius:'50%',animation:'spin 0.8s linear infinite' }} />
-            </div>
-          )}
-        </div>
-
         {/* ── VARIANT PICKER BOTTOM SHEET ── */}
         {variantTarget && (
           <div style={{ position:'fixed',inset:0,zIndex:300,display:'flex',alignItems:'flex-end',justifyContent:'center' }}
             onClick={()=>setVariantTarget(null)}>
             <div style={{ position:'absolute',inset:0,background:'rgba(0,0,0,0.7)' }} />
-            <div style={{ position:'relative',width:'100%',maxWidth:430,background:'#0D001A',borderRadius:'22px 22px 0 0',border:'1px solid rgba(245,158,11,0.2)',borderBottom:'none',paddingBottom:'env(safe-area-inset-bottom)' }}
+            <div style={{ position:'relative',width:'100%',maxWidth:430,background:'#0D001A',
+              borderRadius:'22px 22px 0 0',border:'1px solid rgba(245,158,11,0.2)',borderBottom:'none',
+              paddingBottom:'env(safe-area-inset-bottom)' }}
               onClick={e=>e.stopPropagation()}>
-              {/* Handle */}
               <div style={{ width:36,height:4,borderRadius:2,background:'rgba(255,255,255,0.15)',margin:'12px auto 0' }} />
-              {/* Title */}
               <div style={{ padding:'14px 18px 10px',borderBottom:'1px solid rgba(255,255,255,0.06)' }}>
                 <div style={{ display:'flex',alignItems:'center',gap:10 }}>
                   {variantTarget.image_url && (
                     <img src={variantTarget.image_url} alt="" style={{ width:44,height:44,borderRadius:10,objectFit:'cover',flexShrink:0 }} />
                   )}
                   <div>
-                    <p style={{ color:'rgba(255,255,255,0.5)',fontSize:11,margin:'0 0 2px',fontWeight:600,textTransform:'uppercase',letterSpacing:.5 }}>Choose size / variant</p>
+                    <p style={{ color:'rgba(255,255,255,0.45)',fontSize:11,margin:'0 0 2px',fontWeight:600,textTransform:'uppercase',letterSpacing:.5 }}>Choose size / variant</p>
                     <p style={{ color:'white',fontWeight:700,fontSize:15,margin:0 }}>{variantTarget.title}</p>
                   </div>
                 </div>
               </div>
-              {/* Variants */}
               <div style={{ padding:'12px 16px 20px',display:'flex',flexDirection:'column',gap:10 }}>
                 {realVariants(variantTarget).map(v => {
                   const vid  = `${variantTarget.id}__${v.id}`;
@@ -555,14 +517,14 @@ export default function HomePage() {
                   return (
                     <button key={v.id} disabled={!v.available}
                       onClick={()=>{ addProduct(variantTarget, v); setVariantTarget(null); }}
-                      style={{ display:'flex',alignItems:'center',justifyContent:'space-between',padding:'14px 16px',borderRadius:14,
+                      style={{ display:'flex',alignItems:'center',justifyContent:'space-between',
+                        padding:'14px 16px',borderRadius:14,
                         background:cqty>0?'rgba(245,158,11,0.1)':'rgba(255,255,255,0.05)',
                         border:`1.5px solid ${cqty>0?'rgba(245,158,11,0.4)':'rgba(255,255,255,0.1)'}`,
-                        cursor:v.available?'pointer':'not-allowed',opacity:v.available?1:0.4,
-                        transition:'all 0.15s' }}>
+                        cursor:v.available?'pointer':'not-allowed',opacity:v.available?1:0.4,transition:'all 0.15s' }}>
                       <div style={{ display:'flex',alignItems:'center',gap:10 }}>
-                        <div style={{ width:36,height:36,borderRadius:8,background:`rgba(245,158,11,0.12)`,border:'1px solid rgba(245,158,11,0.2)',display:'flex',alignItems:'center',justifyContent:'center' }}>
-                          <span style={{ fontSize:12,fontWeight:800,color:'#F59E0B' }}>{v.title}</span>
+                        <div style={{ width:36,height:36,borderRadius:8,background:'rgba(245,158,11,0.12)',border:'1px solid rgba(245,158,11,0.2)',display:'flex',alignItems:'center',justifyContent:'center' }}>
+                          <span style={{ fontSize:11,fontWeight:800,color:'#F59E0B' }}>{v.title}</span>
                         </div>
                         <div style={{ textAlign:'left' }}>
                           <p style={{ color:'white',fontWeight:700,fontSize:14,margin:0 }}>{v.title}</p>
@@ -572,10 +534,7 @@ export default function HomePage() {
                       </div>
                       <div style={{ textAlign:'right' }}>
                         <p style={{ color:'#F59E0B',fontWeight:900,fontSize:18,margin:0 }}>{fmt(v.priceKobo)}</p>
-                        <div style={{ display:'flex',alignItems:'center',gap:4,justifyContent:'flex-end',marginTop:2 }}>
-                          <Plus size={12} color="#F59E0B" />
-                          <span style={{ color:'#F59E0B',fontSize:11,fontWeight:700 }}>Add</span>
-                        </div>
+                        <p style={{ color:'rgba(255,255,255,0.35)',fontSize:11,margin:'2px 0 0' }}>tap to add</p>
                       </div>
                     </button>
                   );
@@ -634,7 +593,9 @@ export default function HomePage() {
                         style={{ display:'flex',alignItems:'center',justifyContent:'center',gap:9,width:'100%',padding:'16px 0',borderRadius:16,background:'linear-gradient(135deg,#F59E0B,#D97706)',color:'#000',fontWeight:800,fontSize:16,border:'none',cursor:'pointer',boxShadow:'0 8px 24px rgba(245,158,11,0.35)' }}>
                         🛒 Proceed to Checkout
                       </button>
-                      <p style={{ textAlign:'center',color:'rgba(255,255,255,0.22)',fontSize:11,marginTop:9 }}>Enter address &amp; pay securely via Paystack</p>
+                      <p style={{ textAlign:'center',color:'rgba(255,255,255,0.22)',fontSize:11,marginTop:9 }}>
+                        Enter address &amp; pay securely via Paystack
+                      </p>
                     </div>
                   </>
                 )}
@@ -645,13 +606,28 @@ export default function HomePage() {
       </div>
 
       <style>{`
-        *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
-        ::-webkit-scrollbar{display:none;}
-        @keyframes spin{to{transform:rotate(360deg)}}
-        @keyframes bounce{0%,100%{transform:translateX(-50%) translateY(0)}50%{transform:translateX(-50%) translateY(-6px)}}
-        @keyframes hint-pulse{0%,70%,100%{opacity:0.55;transform:translateY(-50%) translateX(0)}80%{opacity:1;transform:translateY(-50%) translateX(-4px)}90%{opacity:0.8;transform:translateY(-50%) translateX(-1px)}}
-        .swipe-hint{animation:img-nudge 5s ease-in-out 2s infinite}
-        @keyframes img-nudge{0%,75%,100%{transform:none}80%{transform:translateX(-10px) rotate(-1deg)}88%{transform:translateX(-3px)}93%{transform:translateX(-6px) rotate(-0.5deg)}}
+        * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+        ::-webkit-scrollbar { display:none; }
+        @keyframes spin { to { transform:rotate(360deg) } }
+        @keyframes bounce {
+          0%,100% { transform:translateX(-50%) translateY(0) }
+          50%      { transform:translateX(-50%) translateY(-6px) }
+        }
+        /* Gentle float on first product image — hints at scroll */
+        .img-float {
+          animation: img-float 3s ease-in-out infinite;
+        }
+        @keyframes img-float {
+          0%, 100% { transform: translateY(0px); }
+          50%       { transform: translateY(-18px); }
+        }
+        /* Double-tap heart pop */
+        @keyframes heart-pop {
+          0%   { opacity:0; transform:scale(0.4); }
+          25%  { opacity:1; transform:scale(1.2); }
+          60%  { opacity:1; transform:scale(1.0); }
+          100% { opacity:0; transform:scale(0.8); }
+        }
       `}</style>
     </div>
   );
