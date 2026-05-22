@@ -3,7 +3,7 @@ import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
-import { ShoppingCart, Plus, Minus, Heart, User, X, ChevronDown, ChevronUp } from 'lucide-react';
+import { ShoppingCart, Plus, Minus, Heart, User, X, ChevronDown, ChevronUp, ChevronLeft } from 'lucide-react';
 import api, { fmt } from '@/lib/api';
 import { loadCart, saveCart, CartItem } from '@/lib/cart';
 
@@ -96,6 +96,8 @@ export default function HomePage() {
   const [favs, setFavs]           = useState<string[]>([]);
   const [cart, setCartState]      = useState<CartItem[]>([]);
   const [cartOpen, setCartOpen]   = useState(false);
+  const [viewMode, setViewMode]           = useState<'feed'|'grid'>('feed');
+  const [selectedProduct, setSelectedProduct] = useState<Product|null>(null);
   const [variantTarget, setVariantTarget] = useState<Product|null>(null);
   const [expandedDesc, setExpandedDesc]   = useState<Set<string>>(new Set());
   const [doubleTapFlash, setDoubleTapFlash] = useState<string>(''); // product id
@@ -152,6 +154,8 @@ export default function HomePage() {
     nextPage.current = 1;
     feedRef.current?.scrollTo({ top:0, behavior:'instant' as ScrollBehavior });
     fetchPage(1, true);
+    setViewMode('feed');
+    setSelectedProduct(null);
   }, [cat]); // eslint-disable-line
 
   useEffect(() => {
@@ -167,7 +171,7 @@ export default function HomePage() {
 
   const allCats = useMemo(() => ['', ...rawCats], [rawCats]);
 
-  /* ── Swipe left/right → change category ── */
+  /* ── Swipe handler ── */
   function onTouchStart(e: React.TouchEvent) {
     touchX.current = e.touches[0].clientX;
     touchY.current = e.touches[0].clientY;
@@ -176,9 +180,19 @@ export default function HomePage() {
     const dx = touchX.current - e.changedTouches[0].clientX;
     const dy = touchY.current - e.changedTouches[0].clientY;
     if (Math.abs(dx) < Math.abs(dy) || Math.abs(dx) < 50) return;
-    const ci = allCats.indexOf(cat);
-    if (dx > 0) setCat(allCats[(ci+1) % allCats.length]);       // swipe left  → next cat
-    else        setCat(allCats[(ci-1+allCats.length) % allCats.length]); // swipe right → prev cat
+    if (viewMode === 'feed') {
+      if (dx > 0) setViewMode('grid');   // swipe left  → open grid
+      else {                              // swipe right → prev category
+        const ci = allCats.indexOf(cat);
+        setCat(allCats[(ci-1+allCats.length) % allCats.length]);
+      }
+    } else {
+      if (dx < 0) setViewMode('feed');   // swipe right → back to feed
+      else {                              // swipe left  → next category (stay in grid)
+        const ci = allCats.indexOf(cat);
+        setCat(allCats[(ci+1) % allCats.length]);
+      }
+    }
   }
 
   /* ── Cart helpers ── */
@@ -481,7 +495,7 @@ export default function HomePage() {
                   )}
                 </div>
 
-                {/* Scroll hint on first card */}
+                {/* Scroll hint */}
                 {i===0 && products.length>1 && (
                   <div style={{ position:'absolute',bottom:8,left:'50%',transform:'translateX(-50%)',
                     display:'flex',flexDirection:'column',alignItems:'center',gap:2,
@@ -490,6 +504,16 @@ export default function HomePage() {
                     <span style={{ color:'white',fontSize:8,letterSpacing:1 }}>SCROLL</span>
                   </div>
                 )}
+
+                {/* Swipe-left → grid hint (every card) */}
+                <div style={{ position:'absolute',top:'50%',right:0,transform:'translateY(-50%)',
+                  zIndex:10,pointerEvents:'none',display:'flex',flexDirection:'column',alignItems:'center',
+                  gap:2,padding:'8px 6px',animation:'grid-hint 4s ease-in-out infinite' }}>
+                  <div style={{ width:3,height:32,borderRadius:2,
+                    background:'linear-gradient(to bottom,transparent,rgba(255,255,255,0.5),transparent)' }} />
+                  <span style={{ color:'rgba(255,255,255,0.45)',fontSize:8,fontWeight:700,letterSpacing:.5,
+                    writingMode:'vertical-rl',textOrientation:'mixed' }}>GRID</span>
+                </div>
               </div>
             );
           })}
@@ -500,6 +524,242 @@ export default function HomePage() {
             </div>
           )}
         </div>
+
+        {/* ── GRID PANEL ── slides in from right on swipe-left ── */}
+        <div style={{ position:'absolute',top:TOP_H,left:0,right:0,bottom:0,
+          background:'#0D001A',zIndex:20,display:'flex',flexDirection:'column',
+          transform:viewMode==='grid'?'translateX(0)':'translateX(100%)',
+          transition:'transform 0.32s cubic-bezier(0.22,1,0.36,1)' }}>
+
+          {/* Grid header */}
+          <div style={{ display:'flex',alignItems:'center',gap:10,padding:'10px 14px 10px',
+            borderBottom:'1px solid rgba(245,158,11,0.12)',flexShrink:0,
+            background:'rgba(45,10,78,0.95)' }}>
+            <button onClick={()=>setViewMode('feed')}
+              style={{ width:36,height:36,borderRadius:'50%',background:'rgba(255,255,255,0.09)',
+                border:'1px solid rgba(255,255,255,0.12)',cursor:'pointer',
+                display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0 }}>
+              <ChevronLeft size={20} color="white" />
+            </button>
+            <div style={{ minWidth:0 }}>
+              <p style={{ color:'rgba(255,255,255,0.38)',fontSize:9,fontWeight:700,letterSpacing:1,
+                margin:0,textTransform:'uppercase' }}>Category</p>
+              <p style={{ color:'white',fontSize:14,fontWeight:800,margin:0,
+                overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>
+                {cat || 'All Products'}
+              </p>
+            </div>
+            <span style={{ marginLeft:'auto',color:'rgba(255,255,255,0.28)',fontSize:11,flexShrink:0 }}>
+              {products.length} items
+            </span>
+          </div>
+
+          {/* 3-column scrollable grid */}
+          <div style={{ flex:1,overflowY:'auto',scrollbarWidth:'none',padding:'10px 8px 20px',
+            display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:8,alignContent:'start' }}>
+            {products.map(p => {
+              const range2  = priceRange(p);
+              const [gg1,gg2] = grad(p.category);
+              return (
+                <button key={p.id} onClick={()=>setSelectedProduct(p)}
+                  style={{ background:'rgba(255,255,255,0.04)',
+                    border:'1px solid rgba(255,255,255,0.08)',
+                    borderRadius:12,padding:0,cursor:'pointer',overflow:'hidden',
+                    display:'flex',flexDirection:'column',textAlign:'left',width:'100%',
+                    transition:'transform 0.12s' }}>
+                  {/* Square image */}
+                  <div style={{ width:'100%',aspectRatio:'1',overflow:'hidden',
+                    background:p.image_url?'#111':`linear-gradient(135deg,${gg1},${gg2})`,
+                    position:'relative',flexShrink:0 }}>
+                    {p.image_url ? (
+                      <img src={p.image_url} alt={p.title} loading="lazy"
+                        style={{ width:'100%',height:'100%',objectFit:'cover' }} />
+                    ) : (
+                      <span style={{ position:'absolute',inset:0,display:'flex',alignItems:'center',
+                        justifyContent:'center',fontSize:28,opacity:.65 }}>
+                        {catEmoji(p.category)}
+                      </span>
+                    )}
+                    {p.inventory===0 && (
+                      <div style={{ position:'absolute',inset:0,background:'rgba(0,0,0,0.55)',
+                        display:'flex',alignItems:'center',justifyContent:'center' }}>
+                        <span style={{ color:'#F87171',fontSize:9,fontWeight:700 }}>SOLD OUT</span>
+                      </div>
+                    )}
+                  </div>
+                  {/* Card info */}
+                  <div style={{ padding:'6px 7px 9px',flex:1,display:'flex',flexDirection:'column',gap:2 }}>
+                    <p style={{ color:'rgba(255,255,255,0.9)',fontSize:10,fontWeight:600,margin:0,
+                      overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',lineHeight:1.3 }}>
+                      {p.title}
+                    </p>
+                    <p style={{ color:'#F59E0B',fontSize:10,fontWeight:900,margin:0,
+                      overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>
+                      {range2 ? `${fmt(range2.min)}–${fmt(range2.max)}` : fmt(p.price_kobo)}
+                    </p>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* ── PRODUCT DETAIL OVERLAY (tapped from grid) ── */}
+        {selectedProduct && (()=>{
+          const p        = selectedProduct;
+          const cqty2    = getQty(p.id);
+          const isFav2   = favs.includes(p.id);
+          const soldOut2 = p.inventory === 0;
+          const [h1,h2]  = grad(p.category);
+          const range3   = priceRange(p);
+          const isExp2   = expandedDesc.has(p.id);
+          const isFlash2 = doubleTapFlash === p.id;
+          return (
+            <div key={p.id}
+              style={{ position:'fixed',inset:0,zIndex:100,background:'#0D001A',
+                animation:'slide-up 0.25s cubic-bezier(0.22,1,0.36,1)' }}>
+              {/* Blurred bg */}
+              {p.image_url ? (
+                <img src={p.image_url} alt="" aria-hidden
+                  style={{ position:'absolute',inset:0,width:'100%',height:'100%',objectFit:'cover',
+                    filter:'blur(24px) saturate(1.2)',transform:'scale(1.08)',zIndex:0 }} />
+              ) : (
+                <div style={{ position:'absolute',inset:0,background:`linear-gradient(160deg,${h1},${h2},#0D001A)`,zIndex:0 }}>
+                  <span style={{ position:'absolute',top:'50%',left:'50%',transform:'translate(-50%,-50%)',fontSize:120,opacity:.18 }}>
+                    {catEmoji(p.category)}
+                  </span>
+                </div>
+              )}
+              {/* Product image */}
+              {p.image_url && (
+                <img src={p.image_url} alt={p.title}
+                  style={{ position:'absolute',inset:0,width:'100%',height:'100%',
+                    objectFit:'contain',objectPosition:'center 38%',zIndex:1 }} />
+              )}
+              {/* Bottom gradient */}
+              <div style={{ position:'absolute',bottom:0,left:0,right:0,height:'55%',
+                background:'linear-gradient(to top,rgba(0,0,0,0.92) 0%,rgba(0,0,0,0.48) 55%,transparent 100%)',zIndex:2 }} />
+              {/* Back button */}
+              <button onClick={()=>setSelectedProduct(null)}
+                style={{ position:'absolute',top:16,left:14,zIndex:30,width:40,height:40,
+                  borderRadius:'50%',background:'rgba(0,0,0,0.65)',backdropFilter:'blur(10px)',
+                  border:'1px solid rgba(255,255,255,0.15)',cursor:'pointer',
+                  display:'flex',alignItems:'center',justifyContent:'center' }}>
+                <ChevronLeft size={22} color="white" />
+              </button>
+              {/* Double-tap flash */}
+              {isFlash2 && (
+                <div style={{ position:'absolute',inset:0,zIndex:20,display:'flex',
+                  alignItems:'center',justifyContent:'center',pointerEvents:'none' }}>
+                  <div style={{ animation:'heart-pop 0.9s ease-out forwards' }}>
+                    <span style={{ fontSize:90 }}>❤️</span>
+                  </div>
+                </div>
+              )}
+              {/* RIGHT ACTIONS */}
+              <div style={{ position:'absolute',right:12,bottom:140,zIndex:10,
+                display:'flex',flexDirection:'column',alignItems:'center',gap:14 }}>
+                <div style={{ display:'flex',flexDirection:'column',alignItems:'center',gap:4 }}>
+                  <button onClick={()=>setCartOpen(true)}
+                    style={{ position:'relative',width:52,height:52,borderRadius:'50%',
+                      border:'2px solid #F59E0B',background:'rgba(245,158,11,0.22)',
+                      backdropFilter:'blur(12px)',boxShadow:'0 0 18px rgba(245,158,11,0.4)',
+                      cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center' }}>
+                    <ShoppingCart size={22} color="#F59E0B" />
+                    {cartCount>0&&<span style={{ position:'absolute',top:-4,right:-4,minWidth:18,height:18,padding:'0 4px',borderRadius:9,background:'#EF4444',color:'white',fontSize:10,fontWeight:700,display:'flex',alignItems:'center',justifyContent:'center' }}>{cartCount}</span>}
+                  </button>
+                  {cartCount===0&&<span style={{ color:'rgba(255,255,255,0.7)',fontSize:10,fontWeight:600 }}>Cart</span>}
+                </div>
+                <div style={{ display:'flex',flexDirection:'column',alignItems:'center',gap:3 }}>
+                  <button disabled={soldOut2}
+                    onClick={()=>handleAddClick(p)}
+                    style={{ width:52,height:52,borderRadius:'50%',
+                      border:`1.5px solid ${soldOut2?'rgba(255,255,255,0.08)':'rgba(255,255,255,0.28)'}`,
+                      background:soldOut2?'rgba(255,255,255,0.04)':'rgba(0,0,0,0.5)',
+                      backdropFilter:'blur(10px)',cursor:soldOut2?'not-allowed':'pointer',
+                      display:'flex',alignItems:'center',justifyContent:'center',opacity:soldOut2?0.35:1 }}>
+                    <Plus size={24} color="white" />
+                  </button>
+                  <span style={{ color:cqty2>0?'#F59E0B':'rgba(255,255,255,0.45)',fontSize:16,fontWeight:700,lineHeight:1 }}>
+                    {cqty2}
+                  </span>
+                </div>
+                <div style={{ display:'flex',flexDirection:'column',alignItems:'center',gap:4 }}>
+                  <button disabled={cqty2===0}
+                    onClick={()=>decrement(p.id)}
+                    style={{ width:52,height:52,borderRadius:'50%',
+                      border:'1.5px solid rgba(255,255,255,0.2)',background:'rgba(0,0,0,0.5)',
+                      backdropFilter:'blur(10px)',cursor:cqty2===0?'not-allowed':'pointer',
+                      display:'flex',alignItems:'center',justifyContent:'center',opacity:cqty2===0?0.3:1 }}>
+                    <Minus size={22} color="white" />
+                  </button>
+                  <span style={{ color:'rgba(255,255,255,0.35)',fontSize:10 }}>Qty</span>
+                </div>
+                <div style={{ display:'flex',flexDirection:'column',alignItems:'center',gap:4 }}>
+                  <button onClick={()=>setFavs(f=>f.includes(p.id)?f.filter(x=>x!==p.id):[...f,p.id])}
+                    style={{ width:52,height:52,borderRadius:'50%',
+                      border:`1.5px solid ${isFav2?'#EF4444':'rgba(255,255,255,0.2)'}`,
+                      background:isFav2?'rgba(239,68,68,0.2)':'rgba(0,0,0,0.5)',
+                      backdropFilter:'blur(10px)',cursor:'pointer',
+                      display:'flex',alignItems:'center',justifyContent:'center' }}>
+                    <Heart size={22} color={isFav2?'#EF4444':'white'} fill={isFav2?'#EF4444':'none'} />
+                  </button>
+                  <span style={{ color:'rgba(255,255,255,0.3)',fontSize:10 }}>Save</span>
+                </div>
+              </div>
+              {/* BOTTOM INFO */}
+              <div style={{ position:'absolute',bottom:0,left:0,right:72,padding:'0 14px 34px',zIndex:10 }}>
+                <div style={{ display:'inline-block',padding:'3px 10px',borderRadius:20,marginBottom:8,
+                  background:`linear-gradient(135deg,${h1},${h2})`,fontSize:11,fontWeight:700,color:'white' }}>
+                  {p.category}
+                </div>
+                <h2 style={{ color:'white',fontWeight:800,fontSize:20,lineHeight:1.3,margin:'0 0 6px',
+                  overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>
+                  {p.title}
+                </h2>
+                <div style={{ marginBottom:8 }}>
+                  {range3 ? (
+                    <p style={{ color:'#F59E0B',fontWeight:900,fontSize:26,margin:0,whiteSpace:'nowrap',
+                      textShadow:'0 0 20px rgba(245,158,11,0.5)' }}>
+                      {fmt(range3.min)} <span style={{ opacity:.6,fontSize:20 }}>–</span> {fmt(range3.max)}
+                    </p>
+                  ) : (
+                    <div style={{ display:'flex',alignItems:'baseline',gap:8 }}>
+                      <span style={{ color:'#F59E0B',fontWeight:900,fontSize:26,
+                        textShadow:'0 0 20px rgba(245,158,11,0.5)',whiteSpace:'nowrap' }}>
+                        {fmt(p.price_kobo)}
+                      </span>
+                      {p.compare_price_kobo && p.compare_price_kobo>p.price_kobo && (
+                        <span style={{ color:'rgba(255,255,255,0.3)',fontSize:14,textDecoration:'line-through' }}>
+                          {fmt(p.compare_price_kobo)}
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </div>
+                {p.description && (
+                  <div style={{ marginBottom:6 }}>
+                    <p style={{ color:'rgba(255,255,255,0.65)',fontSize:14,lineHeight:1.55,margin:0,
+                      ...(isExp2?{}:{ display:'-webkit-box',WebkitLineClamp:3,WebkitBoxOrient:'vertical' as any,overflow:'hidden' }) }}>
+                      {p.description}
+                    </p>
+                    {p.description.length>100 && (
+                      <button onClick={()=>toggleDesc(p.id)}
+                        style={{ background:'none',border:'none',color:'#F59E0B',fontSize:12,fontWeight:700,
+                          cursor:'pointer',padding:'3px 0 0',display:'flex',alignItems:'center',gap:3 }}>
+                        {isExp2?<><ChevronUp size={13}/> Less</>:<><ChevronDown size={13}/> More</>}
+                      </button>
+                    )}
+                  </div>
+                )}
+                {soldOut2&&<span style={{ color:'#F87171',fontSize:12,fontWeight:600 }}>⚠ Out of stock</span>}
+                {!soldOut2&&p.inventory>0&&p.inventory<=5&&(
+                  <span style={{ color:'#FB923C',fontSize:12,fontWeight:600 }}>Only {p.inventory} left!</span>
+                )}
+              </div>
+            </div>
+          );
+        })()}
 
         {/* ── VARIANT PICKER BOTTOM SHEET ── */}
         {variantTarget && (
@@ -639,6 +899,17 @@ export default function HomePage() {
           25%  { opacity:1; transform:scale(1.2); }
           60%  { opacity:1; transform:scale(1.0); }
           100% { opacity:0; transform:scale(0.8); }
+        }
+        /* Swipe-left GRID hint — pulses on right edge */
+        @keyframes grid-hint {
+          0%,100% { opacity:0.25; transform:translateY(-50%) translateX(0px); }
+          40%      { opacity:0.75; transform:translateY(-50%) translateX(-4px); }
+          60%      { opacity:0.75; transform:translateY(-50%) translateX(-4px); }
+        }
+        /* Product detail slide-up from grid tap */
+        @keyframes slide-up {
+          from { opacity:0; transform:translateY(24px) scale(0.97); }
+          to   { opacity:1; transform:translateY(0) scale(1); }
         }
       `}</style>
     </div>
