@@ -372,8 +372,8 @@ export default function HomePage() {
                     {cartCount===0&&<span style={{ color:'rgba(255,255,255,0.7)',fontSize:10,fontWeight:600,letterSpacing:.4 }}>Cart</span>}
                   </div>
 
-                  {/* ADD / qty */}
-                  <div style={{ display:'flex',flexDirection:'column',alignItems:'center',gap:4 }}>
+                  {/* ADD / qty — variant products open picker, normal products increment */}
+                  <div style={{ display:'flex',flexDirection:'column',alignItems:'center',gap:3 }}>
                     <button disabled={soldOut}
                       onClick={e=>{e.stopPropagation();handleAddClick(p);}}
                       style={{ width:52,height:52,borderRadius:'50%',
@@ -381,15 +381,13 @@ export default function HomePage() {
                         background:soldOut?'rgba(255,255,255,0.04)':'rgba(0,0,0,0.5)',
                         backdropFilter:'blur(10px)',cursor:soldOut?'not-allowed':'pointer',
                         display:'flex',alignItems:'center',justifyContent:'center',
-                        opacity:soldOut?0.35:1,transition:'transform 0.1s',
-                        transform:'scale(1)',
-                      }}>
+                        opacity:soldOut?0.35:1,transition:'transform 0.1s' }}>
                       <Plus size={24} color="white" />
                     </button>
-                    {/* shows "Add" when 0, shows count in gold when > 0 */}
-                    <span style={{ color:cqty>0?'#F59E0B':'rgba(255,255,255,0.6)',
-                      fontSize:cqty>0?16:10,fontWeight:cqty>0?800:600,letterSpacing:.3 }}>
-                      {cqty > 0 ? cqty : 'Add'}
+                    {/* qty number — always visible, 0 when not in cart, gold when added */}
+                    <span style={{ color:cqty>0?'#F59E0B':'rgba(255,255,255,0.45)',
+                      fontSize:16,fontWeight:700,lineHeight:1 }}>
+                      {cqty}
                     </span>
                   </div>
 
@@ -404,7 +402,7 @@ export default function HomePage() {
                         opacity:cqty===0?0.3:1,transition:'opacity 0.15s' }}>
                       <Minus size={22} color="white" />
                     </button>
-                    <span style={{ color:'rgba(255,255,255,0.3)',fontSize:10 }}>Less</span>
+                    <span style={{ color:'rgba(255,255,255,0.35)',fontSize:10 }}>Qty</span>
                   </div>
 
                   {/* Heart */}
