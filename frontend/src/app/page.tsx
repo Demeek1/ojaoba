@@ -10,24 +10,57 @@ import { loadCart, saveCart, CartItem } from '@/lib/cart';
 const WA = process.env.NEXT_PUBLIC_WA_NUMBER || '2348000000000';
 
 /* ── Category helpers ── */
-const CAT_ICONS: Record<string, string> = {
-  grains:'🌾',rice:'🍚',vegetables:'🥦',veggies:'🥦',fruits:'🍎',meat:'🥩',
-  fish:'🐟',seafood:'🦐',dairy:'🥛',beverages:'🥤',drinks:'🥤',snacks:'🍿',
-  condiments:'🫙',spices:'🌶️',cooking:'🍳',frozen:'❄️',poultry:'🍗',
-  chicken:'🍗',eggs:'🥚',alcoholic:'🍾',baby:'👶',baking:'🧁',cereals:'🥣',
-  household:'🏠',oils:'🫙',pasta:'🍝',provision:'🛒',
+const CAT_IMAGES: Record<string, string> = {
+  grains:'https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?w=200&h=200&fit=crop',
+  rice:'https://images.unsplash.com/photo-1536304929831-ee1ca9d44906?w=200&h=200&fit=crop',
+  vegetables:'https://images.unsplash.com/photo-1540420773420-3366772f4999?w=200&h=200&fit=crop',
+  veggies:'https://images.unsplash.com/photo-1540420773420-3366772f4999?w=200&h=200&fit=crop',
+  fruits:'https://images.unsplash.com/photo-1619566636858-adf3ef46400b?w=200&h=200&fit=crop',
+  meat:'https://images.unsplash.com/photo-1607623814075-e51df1bdc82f?w=200&h=200&fit=crop',
+  fish:'https://images.unsplash.com/photo-1510130113581-3a927e100ccd?w=200&h=200&fit=crop',
+  seafood:'https://images.unsplash.com/photo-1510130113581-3a927e100ccd?w=200&h=200&fit=crop',
+  dairy:'https://images.unsplash.com/photo-1628088062854-d1870b4553da?w=200&h=200&fit=crop',
+  beverages:'https://images.unsplash.com/photo-1625772299848-391b6a87d7b3?w=200&h=200&fit=crop',
+  drinks:'https://images.unsplash.com/photo-1625772299848-391b6a87d7b3?w=200&h=200&fit=crop',
+  snacks:'https://images.unsplash.com/photo-1621939514649-280e2ee25f60?w=200&h=200&fit=crop',
+  condiments:'https://images.unsplash.com/photo-1596040033229-a9821ebd058d?w=200&h=200&fit=crop',
+  spices:'https://images.unsplash.com/photo-1596040033229-a9821ebd058d?w=200&h=200&fit=crop',
+  cooking:'https://images.unsplash.com/photo-1556910103-1c02745aae4d?w=200&h=200&fit=crop',
+  frozen:'https://images.unsplash.com/photo-1584568694244-14fbdf83bd30?w=200&h=200&fit=crop',
+  poultry:'https://images.unsplash.com/photo-1587593810167-a84920ea0781?w=200&h=200&fit=crop',
+  chicken:'https://images.unsplash.com/photo-1587593810167-a84920ea0781?w=200&h=200&fit=crop',
+  eggs:'https://images.unsplash.com/photo-1582722872445-44dc5f7e3c8f?w=200&h=200&fit=crop',
+  alcoholic:'https://images.unsplash.com/photo-1569529465841-dfecdab7503b?w=200&h=200&fit=crop',
+  baby:'https://images.unsplash.com/photo-1515488042361-ee00e0ddd4e4?w=200&h=200&fit=crop',
+  baking:'https://images.unsplash.com/photo-1486427944544-d2c246c4df14?w=200&h=200&fit=crop',
+  cereals:'https://images.unsplash.com/photo-1521483451569-e33803c0330c?w=200&h=200&fit=crop',
+  household:'https://images.unsplash.com/photo-1563453392212-326f5e854473?w=200&h=200&fit=crop',
+  oils:'https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?w=200&h=200&fit=crop',
+  pasta:'https://images.unsplash.com/photo-1551462147-ff29053bfc14?w=200&h=200&fit=crop',
+  provision:'https://images.unsplash.com/photo-1604719312566-8912e9227c6a?w=200&h=200&fit=crop',
 };
-const FALLBACKS = ['🥕','🍅','🌽','🧅','🧄','🫚','🍋','🥝','🌿','🛒'];
+const ALL_IMG = 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=200&h=200&fit=crop';
+const FALLBACK_IMG = 'https://images.unsplash.com/photo-1506617420156-8e4536971650?w=200&h=200&fit=crop';
+const CAT_EMOJIS: Record<string,string> = {
+  grains:'🌾',rice:'🍚',vegetables:'🥦',fruits:'🍎',meat:'🥩',fish:'🐟',
+  dairy:'🥛',drinks:'🥤',snacks:'🍿',spices:'🌶️',frozen:'❄️',chicken:'🍗',
+  eggs:'🥚',alcoholic:'🍾',baby:'👶',baking:'🧁',cereals:'🥣',pasta:'🍝',
+};
+function catEmoji(n: string) {
+  const lo = n.toLowerCase();
+  for (const [k,v] of Object.entries(CAT_EMOJIS)) if (lo.includes(k)) return v;
+  return '🛒';
+}
 const GRADS = [
   ['#F59E0B','#D97706'],['#EF4444','#DC2626'],['#10B981','#059669'],
   ['#8B5CF6','#7C3AED'],['#3B82F6','#1D4ED8'],['#F97316','#EA580C'],
   ['#EC4899','#DB2777'],['#14B8A6','#0D9488'],['#A78BFA','#7C3AED'],
 ];
-function icon(n: string) {
+function catImg(n: string) {
+  if (!n) return ALL_IMG;
   const lo = n.toLowerCase();
-  for (const [k,v] of Object.entries(CAT_ICONS)) if (lo.includes(k)) return v;
-  let h = 0; for (const c of n) h=(h*31+c.charCodeAt(0))&0xffff;
-  return FALLBACKS[h%FALLBACKS.length];
+  for (const [k,v] of Object.entries(CAT_IMAGES)) if (lo.includes(k)) return v;
+  return FALLBACK_IMG;
 }
 function grad(n: string): [string,string] {
   let h = 0; for (const c of n) h=(h*31+c.charCodeAt(0))&0xffff;
@@ -141,19 +174,20 @@ export default function HomePage() {
         <div style={{
           position:'absolute', top:0, left:0, right:0, zIndex:50,
           display:'flex', alignItems:'center', justifyContent:'space-between',
-          padding:'10px 14px',
-          background:'linear-gradient(to bottom,rgba(0,0,0,0.82) 0%,transparent 100%)',
+          padding:'12px 16px',
+          background:'#2D0A4E',
+          boxShadow:'0 2px 12px rgba(0,0,0,0.4)',
         }}>
-          <button style={{ width:38,height:38,borderRadius:'50%',background:'rgba(255,255,255,0.12)',border:'none',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer' }}>
-            <Bell size={19} color="#F59E0B" />
+          <button style={{ width:40,height:40,borderRadius:'50%',background:'rgba(255,255,255,0.1)',border:'1.5px solid rgba(255,255,255,0.15)',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer' }}>
+            <Bell size={20} color="#F59E0B" />
           </button>
-          <img src="/OJAOBA.LOGO.jpg" alt="OjaOba" style={{ height:34, borderRadius:8, objectFit:'contain' }} />
+          <img src="/OJAOBA.LOGO.jpg" alt="OjaOba" style={{ height:36, borderRadius:8, objectFit:'contain' }} />
           <button onClick={()=>setCartOpen(true)} style={{
-            position:'relative',width:38,height:38,borderRadius:'50%',
-            background:'rgba(245,158,11,0.18)',border:'1.5px solid rgba(245,158,11,0.35)',
+            position:'relative',width:40,height:40,borderRadius:'50%',
+            background:'rgba(245,158,11,0.15)',border:'1.5px solid rgba(245,158,11,0.35)',
             display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',
           }}>
-            <ShoppingCart size={19} color="#F59E0B" />
+            <ShoppingCart size={20} color="#F59E0B" />
             {cartCount>0&&(
               <span style={{ position:'absolute',top:-4,right:-4,minWidth:18,height:18,padding:'0 4px',borderRadius:9,background:'#EF4444',color:'white',fontSize:10,fontWeight:700,display:'flex',alignItems:'center',justifyContent:'center' }}>
                 {cartCount}
@@ -164,32 +198,32 @@ export default function HomePage() {
 
         {/* ── CATEGORY STORIES ── */}
         <div style={{
-          position:'absolute',top:54,left:0,right:0,zIndex:40,
-          display:'flex',gap:10,overflowX:'auto',padding:'6px 12px 8px',
+          position:'absolute',top:64,left:0,right:0,zIndex:40,
+          display:'flex',gap:10,overflowX:'auto',padding:'8px 12px 10px',
           scrollbarWidth:'none',
-          background:'linear-gradient(to bottom,rgba(0,0,0,0.55) 0%,transparent 100%)',
+          background:'#2D0A4E',
+          borderBottom:'1px solid rgba(245,158,11,0.15)',
         }}>
           {allCats.map((c,i) => {
             const name   = c || 'All';
-            const ic     = c ? icon(c) : '🛒';
-            const [g1,g2]= c ? grad(c) : ['#F59E0B','#D97706'];
+            const img    = catImg(c);
             const active = cat===c;
             return (
               <button key={c||'all'} onClick={()=>setCat(c)}
                 style={{ display:'flex',flexDirection:'column',alignItems:'center',gap:4,flexShrink:0,background:'none',border:'none',cursor:'pointer',padding:0 }}>
                 <div style={{
                   borderRadius:'50%',padding:2.5,transition:'all 0.2s',
-                  background:active?`linear-gradient(135deg,${g1},${g2})`:'rgba(255,255,255,0.18)',
-                  boxShadow:active?`0 0 14px ${g1}88`:'none',
+                  background:active?'linear-gradient(135deg,#F59E0B,#D97706)':'rgba(255,255,255,0.15)',
+                  boxShadow:active?'0 0 14px rgba(245,158,11,0.5)':'none',
                 }}>
                   <div style={{
-                    width:48,height:48,borderRadius:'50%',fontSize:20,
-                    display:'flex',alignItems:'center',justifyContent:'center',
-                    background:active?`${g1}28`:'rgba(10,0,20,0.7)',
-                    border:active?'none':'1.5px solid rgba(255,255,255,0.1)',
-                  }}>{ic}</div>
+                    width:48,height:48,borderRadius:'50%',overflow:'hidden',
+                    border:active?'2px solid #2D0A4E':'2px solid rgba(255,255,255,0.08)',
+                  }}>
+                    <img src={img} alt={name} style={{ width:'100%',height:'100%',objectFit:'cover' }} />
+                  </div>
                 </div>
-                <span style={{ fontSize:10,fontWeight:600,color:active?g1:'rgba(255,255,255,0.55)',maxWidth:52,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>
+                <span style={{ fontSize:10,fontWeight:600,color:active?'#F59E0B':'rgba(255,255,255,0.55)',maxWidth:56,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>
                   {name}
                 </span>
               </button>
@@ -234,7 +268,7 @@ export default function HomePage() {
                   </>
                 ) : (
                   <div style={{ position:'absolute',inset:0,background:`linear-gradient(160deg,${g1},${g2},#0D001A)`,display:'flex',alignItems:'center',justifyContent:'center' }}>
-                    <span style={{ fontSize:120,opacity:0.25 }}>{icon(p.category)}</span>
+                    <span style={{ fontSize:120,opacity:0.25 }}>{catEmoji(p.category)}</span>
                   </div>
                 )}
 
