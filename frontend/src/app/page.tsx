@@ -212,7 +212,14 @@ export default function HomePage() {
   /* ── Cart helpers ── */
   const cartCount = cart.reduce((s,c) => s+c.qty, 0);
   const cartTotal = cart.reduce((s,c) => s+c.price_kobo*c.qty, 0);
-  function getQty(id: string) { return cart.find(c=>c.id===id)?.qty ?? 0; }
+
+  // Total qty for a product across ALL its variants
+  // Cart ids are either `productId` (plain) or `productId__variantId` (variant)
+  function getQty(productId: string) {
+    return cart
+      .filter(c => c.id === productId || c.id.startsWith(productId + '__'))
+      .reduce((s, c) => s + c.qty, 0);
+  }
 
   function addProduct(p: Product, variant?: Variant) {
     const id    = variant ? `${p.id}__${variant.id}` : p.id;
@@ -234,12 +241,14 @@ export default function HomePage() {
     addProduct(p, singleVariant);
   }
 
-  function decrement(id: string) {
+  // Decrement: finds exact id OR any variant of this product
+  function decrement(productId: string) {
     setCart(prev => {
-      const ex = prev.find(c=>c.id===id);
+      const ex = prev.find(c => c.id === productId)
+               ?? prev.find(c => c.id.startsWith(productId + '__'));
       if (!ex) return prev;
-      if (ex.qty<=1) return prev.filter(c=>c.id!==id);
-      return prev.map(c=>c.id===id?{...c,qty:c.qty-1}:c);
+      if (ex.qty <= 1) return prev.filter(c => c.id !== ex.id);
+      return prev.map(c => c.id === ex.id ? {...c, qty:c.qty-1} : c);
     });
   }
 
@@ -405,26 +414,30 @@ export default function HomePage() {
 
                   {/* ADD / qty — variant products open picker, normal products increment */}
                   <div style={{ display:'flex',flexDirection:'column',alignItems:'center',gap:3 }}>
-                    <button disabled={soldOut}
+                    <button disabled={soldOut} className="btn-press"
                       onClick={e=>{e.stopPropagation();handleAddClick(p);}}
                       style={{ width:52,height:52,borderRadius:'50%',
-                        border:`1.5px solid ${soldOut?'rgba(255,255,255,0.08)':'rgba(255,255,255,0.28)'}`,
-                        background:soldOut?'rgba(255,255,255,0.04)':'rgba(0,0,0,0.5)',
+                        border:`1.5px solid ${soldOut?'rgba(255,255,255,0.08)':cqty>0?'rgba(245,158,11,0.7)':'rgba(255,255,255,0.28)'}`,
+                        background:soldOut?'rgba(255,255,255,0.04)':cqty>0?'rgba(245,158,11,0.18)':'rgba(0,0,0,0.5)',
                         backdropFilter:'blur(10px)',cursor:soldOut?'not-allowed':'pointer',
                         display:'flex',alignItems:'center',justifyContent:'center',
-                        opacity:soldOut?0.35:1,transition:'transform 0.1s' }}>
-                      <Plus size={24} color="white" />
+                        opacity:soldOut?0.35:1,
+                        boxShadow:cqty>0?'0 0 14px rgba(245,158,11,0.35)':'none' }}>
+                      <Plus size={24} color={cqty>0?'#F59E0B':'white'} />
                     </button>
-                    {/* qty number — always visible, 0 when not in cart, gold when added */}
-                    <span style={{ color:cqty>0?'#F59E0B':'rgba(255,255,255,0.45)',
-                      fontSize:16,fontWeight:700,lineHeight:1 }}>
+                    {/* qty number — turns gold and bigger when items in cart */}
+                    <span style={{
+                      color:cqty>0?'#F59E0B':'rgba(255,255,255,0.45)',
+                      fontSize:cqty>0?20:16,fontWeight:800,lineHeight:1,
+                      transition:'font-size 0.15s, color 0.15s',
+                      textShadow:cqty>0?'0 0 10px rgba(245,158,11,0.5)':'none' }}>
                       {cqty}
                     </span>
                   </div>
 
                   {/* Minus */}
                   <div style={{ display:'flex',flexDirection:'column',alignItems:'center',gap:4 }}>
-                    <button disabled={cqty===0}
+                    <button disabled={cqty===0} className="btn-press"
                       onClick={e=>{e.stopPropagation();decrement(p.id);}}
                       style={{ width:52,height:52,borderRadius:'50%',
                         border:'1.5px solid rgba(255,255,255,0.2)',background:'rgba(0,0,0,0.5)',
@@ -705,21 +718,25 @@ export default function HomePage() {
                   {cartCount===0&&<span style={{ color:'rgba(255,255,255,0.7)',fontSize:10,fontWeight:600 }}>Cart</span>}
                 </div>
                 <div style={{ display:'flex',flexDirection:'column',alignItems:'center',gap:3 }}>
-                  <button disabled={soldOut2}
+                  <button disabled={soldOut2} className="btn-press"
                     onClick={()=>handleAddClick(p)}
                     style={{ width:52,height:52,borderRadius:'50%',
-                      border:`1.5px solid ${soldOut2?'rgba(255,255,255,0.08)':'rgba(255,255,255,0.28)'}`,
-                      background:soldOut2?'rgba(255,255,255,0.04)':'rgba(0,0,0,0.5)',
+                      border:`1.5px solid ${soldOut2?'rgba(255,255,255,0.08)':cqty2>0?'rgba(245,158,11,0.7)':'rgba(255,255,255,0.28)'}`,
+                      background:soldOut2?'rgba(255,255,255,0.04)':cqty2>0?'rgba(245,158,11,0.18)':'rgba(0,0,0,0.5)',
                       backdropFilter:'blur(10px)',cursor:soldOut2?'not-allowed':'pointer',
-                      display:'flex',alignItems:'center',justifyContent:'center',opacity:soldOut2?0.35:1 }}>
-                    <Plus size={24} color="white" />
+                      display:'flex',alignItems:'center',justifyContent:'center',opacity:soldOut2?0.35:1,
+                      boxShadow:cqty2>0?'0 0 14px rgba(245,158,11,0.35)':'none' }}>
+                    <Plus size={24} color={cqty2>0?'#F59E0B':'white'} />
                   </button>
-                  <span style={{ color:cqty2>0?'#F59E0B':'rgba(255,255,255,0.45)',fontSize:16,fontWeight:700,lineHeight:1 }}>
+                  <span style={{ color:cqty2>0?'#F59E0B':'rgba(255,255,255,0.45)',
+                    fontSize:cqty2>0?20:16,fontWeight:800,lineHeight:1,
+                    transition:'font-size 0.15s,color 0.15s',
+                    textShadow:cqty2>0?'0 0 10px rgba(245,158,11,0.5)':'none' }}>
                     {cqty2}
                   </span>
                 </div>
                 <div style={{ display:'flex',flexDirection:'column',alignItems:'center',gap:4 }}>
-                  <button disabled={cqty2===0}
+                  <button disabled={cqty2===0} className="btn-press"
                     onClick={()=>decrement(p.id)}
                     style={{ width:52,height:52,borderRadius:'50%',
                       border:'1.5px solid rgba(255,255,255,0.2)',background:'rgba(0,0,0,0.5)',
@@ -934,6 +951,9 @@ export default function HomePage() {
           60%  { opacity:1; transform:scale(1.0); }
           100% { opacity:0; transform:scale(0.8); }
         }
+        /* Button press feel */
+        .btn-press { transition: transform 0.08s, box-shadow 0.08s; }
+        .btn-press:active { transform: scale(0.82) !important; box-shadow: 0 0 0 rgba(0,0,0,0) !important; }
         /* Swipe-left GRID hint — pulses on right edge */
         @keyframes grid-hint {
           0%,100% { opacity:0.25; transform:translateY(-50%) translateX(0px); }
