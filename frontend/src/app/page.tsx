@@ -129,13 +129,16 @@ export default function HomePage() {
   const nextPage   = useRef(1);
   const totalPages = useRef(1);
   const fetching   = useRef(false);
+  const allLoaded  = useRef(false); // true once every page for this category is fetched
 
   const fetchPage = useCallback(async (page: number, replace: boolean) => {
     if (fetching.current) return;
+    // Don't re-fetch if we've already loaded everything (grid protection)
+    if (!replace && allLoaded.current) return;
     fetching.current = true;
     if (replace) setIsLoading(true); else setLoadingMore(true);
     try {
-      const p: Record<string,string> = { page: String(page), limit: '12' };
+      const p: Record<string,string> = { page: String(page), limit: '24' }; // 24 = 8 full rows of 3
       if (cat) p.category = cat;
       const { data } = await api.get('/products', { params: p });
       const incoming: Product[] = (data.products ?? []).map((pr: any) => ({
@@ -143,7 +146,10 @@ export default function HomePage() {
         variants: typeof pr.variants === 'string' ? JSON.parse(pr.variants) : (pr.variants ?? []),
       }));
       totalPages.current = data.totalPages ?? 1;
-      nextPage.current = page < totalPages.current ? page+1 : 1;
+      const isLast = page >= totalPages.current;
+      // Feed wraps to 1 so it loops; grid uses allLoaded to stop
+      nextPage.current = isLast ? 1 : page + 1;
+      allLoaded.current = isLast;
       setProducts(prev => replace ? incoming : [...prev, ...incoming]);
     } finally {
       fetching.current = false;
@@ -153,9 +159,10 @@ export default function HomePage() {
 
   useEffect(() => {
     nextPage.current = 1;
+    allLoaded.current = false;
     feedRef.current?.scrollTo({ top:0, behavior:'instant' as ScrollBehavior });
     fetchPage(1, true);
-    setViewMode('feed');
+    // Stay in whatever view the user is in; only reset detail overlay
     setSelectedProduct(null);
   }, [cat]); // eslint-disable-line
 
@@ -164,19 +171,21 @@ export default function HomePage() {
     if (!el) return;
     const onScroll = () => {
       const rem = el.scrollHeight - el.scrollTop - el.clientHeight;
-      if (rem < el.clientHeight*2 && !fetching.current) fetchPage(nextPage.current, false);
+      // Feed can loop — no allLoaded check here
+      if (rem < el.clientHeight * 2 && !fetching.current) fetchPage(nextPage.current, false);
     };
     el.addEventListener('scroll', onScroll, { passive:true });
     return () => el.removeEventListener('scroll', onScroll);
   }, [fetchPage]);
 
-  // Grid panel also triggers infinite load as user scrolls down
+  // Grid: load more as user scrolls — stops correctly when all products are loaded
   useEffect(() => {
     const el = gridRef.current;
     if (!el) return;
     const onGridScroll = () => {
       const rem = el.scrollHeight - el.scrollTop - el.clientHeight;
-      if (rem < 400 && !fetching.current && nextPage.current <= totalPages.current)
+      // Trigger early (1.5× visible height before bottom) for smooth experience
+      if (rem < el.clientHeight * 1.5 && !fetching.current && !allLoaded.current)
         fetchPage(nextPage.current, false);
     };
     el.addEventListener('scroll', onGridScroll, { passive:true });
@@ -577,7 +586,7 @@ export default function HomePage() {
               </p>
             </div>
             <span style={{ marginLeft:'auto',color:'rgba(255,255,255,0.28)',fontSize:11,flexShrink:0 }}>
-              {products.length}{nextPage.current <= totalPages.current ? '+' : ''} items
+              {products.length}{allLoaded.current ? '' : '+'} items
             </span>
           </div>
 
@@ -676,11 +685,16 @@ export default function HomePage() {
             )}
 
             {/* End of list indicator */}
-            {!loadingMore && nextPage.current > totalPages.current && products.length > 0 && (
-              <div style={{ gridColumn:'1/-1',textAlign:'center',padding:'16px 0' }}>
-                <span style={{ color:'rgba(255,255,255,0.18)',fontSize:11 }}>
-                  All {products.length} products loaded
-                </span>
+            {!loadingMore && allLoaded.current && products.length > 0 && (
+              <div style={{ gridColumn:'1/-1',textAlign:'center',padding:'20px 0 8px' }}>
+                <div style={{ display:'inline-flex',alignItems:'center',gap:6,
+                  background:'rgba(245,158,11,0.08)',border:'1px solid rgba(245,158,11,0.18)',
+                  borderRadius:20,padding:'6px 14px' }}>
+                  <span style={{ fontSize:13 }}>✅</span>
+                  <span style={{ color:'rgba(255,255,255,0.45)',fontSize:11,fontWeight:600 }}>
+                    All {products.length} products shown
+                  </span>
+                </div>
               </div>
             )}
           </div>
