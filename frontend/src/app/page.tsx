@@ -449,7 +449,7 @@ export default function HomePage() {
                         boxShadow:cqty>0?'0 0 14px rgba(34,197,94,0.35)':'none' }}>
                       <Plus size={24} color={cqty>0?'#22C55E':'white'} />
                     </button>
-                    <span style={{ color:cqty>0?'#22C55E':'rgba(255,255,255,0.5)',fontSize:10,fontWeight:600,letterSpacing:.3 }}>Add</span>
+                    <span style={{ color:cqty>0?'#22C55E':'rgba(255,255,255,0.5)',fontSize:10,fontWeight:600,letterSpacing:.3 }}>{cqty>0?cqty:'Add'}</span>
                   </div>
 
                   {/* Minus */}
@@ -807,7 +807,7 @@ export default function HomePage() {
                       boxShadow:cqty2>0?'0 0 14px rgba(34,197,94,0.35)':'none' }}>
                     <Plus size={24} color={cqty2>0?'#22C55E':'white'} />
                   </button>
-                  <span style={{ color:cqty2>0?'#22C55E':'rgba(255,255,255,0.5)',fontSize:10,fontWeight:600,letterSpacing:.3 }}>Add</span>
+                  <span style={{ color:cqty2>0?'#22C55E':'rgba(255,255,255,0.5)',fontSize:10,fontWeight:600,letterSpacing:.3 }}>{cqty2>0?cqty2:'Add'}</span>
                 </div>
                 {/* Remove */}
                 <div style={{ display:'flex',flexDirection:'column',alignItems:'center',gap:4 }}>
