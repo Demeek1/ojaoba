@@ -304,9 +304,7 @@ export default function HomePage() {
 
   return (
     <div style={{ height:'100dvh', background:'#2D0A4E', display:'flex', justifyContent:'center', overflow:'hidden' }}>
-      <div style={{ position:'relative', width:'100%', maxWidth:430, height:'100dvh', overflow:'hidden', background:'#2D0A4E' }}
-        onTouchStart={onTouchStart}
-        onTouchEnd={onTouchEnd}>
+      <div style={{ position:'relative', width:'100%', maxWidth:430, height:'100dvh', overflow:'hidden', background:'#2D0A4E' }}>
 
         {/* ── HEADER ── */}
         <div style={{ position:'absolute',top:0,left:0,right:0,zIndex:50,height:HEADER_H,
@@ -323,7 +321,11 @@ export default function HomePage() {
         </div>
 
         {/* ── CATEGORY STORIES ── */}
-        <div style={{ position:'absolute',top:HEADER_H,left:0,right:0,zIndex:40,height:STORIES_H,
+        <div
+          onTouchStart={e=>e.stopPropagation()}
+          onTouchEnd={e=>e.stopPropagation()}
+          onTouchMove={e=>e.stopPropagation()}
+          style={{ position:'absolute',top:HEADER_H,left:0,right:0,zIndex:40,height:STORIES_H,
           display:'flex',alignItems:'center',overflowX:'auto',padding:'0 10px',
           scrollbarWidth:'none',background:'#2D0A4E',borderBottom:'1px solid rgba(245,158,11,0.12)' }}>
           {allCats.map(c => {
