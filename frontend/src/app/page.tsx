@@ -441,19 +441,15 @@ export default function HomePage() {
                     <button disabled={soldOut} className="btn-press"
                       onClick={e=>{e.stopPropagation();handleAddClick(p);}}
                       style={{ position:'relative',width:52,height:52,borderRadius:'50%',
-                        border:`1.5px solid ${soldOut?'rgba(255,255,255,0.08)':cqty>0?'rgba(245,158,11,0.7)':'rgba(255,255,255,0.28)'}`,
-                        background:soldOut?'rgba(255,255,255,0.04)':cqty>0?'rgba(245,158,11,0.18)':'rgba(0,0,0,0.5)',
+                        border:`1.5px solid ${soldOut?'rgba(255,255,255,0.08)':cqty>0?'rgba(34,197,94,0.7)':'rgba(255,255,255,0.28)'}`,
+                        background:soldOut?'rgba(255,255,255,0.04)':cqty>0?'rgba(34,197,94,0.18)':'rgba(0,0,0,0.5)',
                         backdropFilter:'blur(10px)',cursor:soldOut?'not-allowed':'pointer',
                         display:'flex',alignItems:'center',justifyContent:'center',
                         opacity:soldOut?0.35:1,
-                        boxShadow:cqty>0?'0 0 14px rgba(245,158,11,0.35)':'none' }}>
-                      <Plus size={24} color={cqty>0?'#F59E0B':'white'} />
-                      {cqty>0&&<span style={{ position:'absolute',top:-5,right:-5,minWidth:20,height:20,
-                        padding:'0 4px',borderRadius:10,background:'#F59E0B',color:'#000',
-                        fontSize:11,fontWeight:900,display:'flex',alignItems:'center',justifyContent:'center',
-                        boxShadow:'0 0 8px rgba(245,158,11,0.6)' }}>{cqty}</span>}
+                        boxShadow:cqty>0?'0 0 14px rgba(34,197,94,0.35)':'none' }}>
+                      <Plus size={24} color={cqty>0?'#22C55E':'white'} />
                     </button>
-                    <span style={{ color:cqty>0?'#F59E0B':'rgba(255,255,255,0.5)',fontSize:10,fontWeight:600,letterSpacing:.3 }}>Add</span>
+                    <span style={{ color:cqty>0?'#22C55E':'rgba(255,255,255,0.5)',fontSize:10,fontWeight:600,letterSpacing:.3 }}>Add</span>
                   </div>
 
                   {/* Minus */}
@@ -804,18 +800,14 @@ export default function HomePage() {
                   <button disabled={soldOut2} className="btn-press"
                     onClick={()=>handleAddClick(p)}
                     style={{ position:'relative',width:52,height:52,borderRadius:'50%',
-                      border:`1.5px solid ${soldOut2?'rgba(255,255,255,0.08)':cqty2>0?'rgba(245,158,11,0.7)':'rgba(255,255,255,0.28)'}`,
-                      background:soldOut2?'rgba(255,255,255,0.04)':cqty2>0?'rgba(245,158,11,0.18)':'rgba(0,0,0,0.5)',
+                      border:`1.5px solid ${soldOut2?'rgba(255,255,255,0.08)':cqty2>0?'rgba(34,197,94,0.7)':'rgba(255,255,255,0.28)'}`,
+                      background:soldOut2?'rgba(255,255,255,0.04)':cqty2>0?'rgba(34,197,94,0.18)':'rgba(0,0,0,0.5)',
                       backdropFilter:'blur(10px)',cursor:soldOut2?'not-allowed':'pointer',
                       display:'flex',alignItems:'center',justifyContent:'center',opacity:soldOut2?0.35:1,
-                      boxShadow:cqty2>0?'0 0 14px rgba(245,158,11,0.35)':'none' }}>
-                    <Plus size={24} color={cqty2>0?'#F59E0B':'white'} />
-                    {cqty2>0&&<span style={{ position:'absolute',top:-5,right:-5,minWidth:20,height:20,
-                      padding:'0 4px',borderRadius:10,background:'#F59E0B',color:'#000',
-                      fontSize:11,fontWeight:900,display:'flex',alignItems:'center',justifyContent:'center',
-                      boxShadow:'0 0 8px rgba(245,158,11,0.6)' }}>{cqty2}</span>}
+                      boxShadow:cqty2>0?'0 0 14px rgba(34,197,94,0.35)':'none' }}>
+                    <Plus size={24} color={cqty2>0?'#22C55E':'white'} />
                   </button>
-                  <span style={{ color:cqty2>0?'#F59E0B':'rgba(255,255,255,0.5)',fontSize:10,fontWeight:600,letterSpacing:.3 }}>Add</span>
+                  <span style={{ color:cqty2>0?'#22C55E':'rgba(255,255,255,0.5)',fontSize:10,fontWeight:600,letterSpacing:.3 }}>Add</span>
                 </div>
                 {/* Remove */}
                 <div style={{ display:'flex',flexDirection:'column',alignItems:'center',gap:4 }}>
