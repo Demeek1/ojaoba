@@ -303,8 +303,8 @@ export default function HomePage() {
   const TOP_H     = HEADER_H + STORIES_H;
 
   return (
-    <div style={{ height:'100dvh', background:'#000', display:'flex', justifyContent:'center', overflow:'hidden' }}>
-      <div style={{ position:'relative', width:'100%', maxWidth:430, height:'100dvh', overflow:'hidden', background:'#0D001A' }}
+    <div style={{ height:'100dvh', background:'#2D0A4E', display:'flex', justifyContent:'center', overflow:'hidden' }}>
+      <div style={{ position:'relative', width:'100%', maxWidth:430, height:'100dvh', overflow:'hidden', background:'#2D0A4E' }}
         onTouchStart={onTouchStart}
         onTouchEnd={onTouchEnd}>
 
@@ -389,9 +389,9 @@ export default function HomePage() {
                 {/* Background — solid gradient (no blur = faster paint) */}
                 {p.image_url ? (
                   <div style={{ position:'absolute',inset:0,
-                    background:`linear-gradient(160deg,${g1}88,${g2}55,#0D001A)`,zIndex:0 }} />
+                    background:`linear-gradient(160deg,${g1}88,${g2}55,#2D0A4E)`,zIndex:0 }} />
                 ) : (
-                  <div style={{ position:'absolute',inset:0,background:`linear-gradient(160deg,${g1},${g2},#0D001A)`,zIndex:0 }}>
+                  <div style={{ position:'absolute',inset:0,background:`linear-gradient(160deg,${g1},${g2},#2D0A4E)`,zIndex:0 }}>
                     <span style={{ position:'absolute',top:'50%',left:'50%',transform:'translate(-50%,-50%)',fontSize:120,opacity:.18 }}>{catEmoji(p.category)}</span>
                   </div>
                 )}
@@ -588,7 +588,7 @@ export default function HomePage() {
 
         {/* ── GRID PANEL ── slides in from right on swipe-left ── */}
         <div style={{ position:'absolute',top:TOP_H,left:0,right:0,bottom:0,
-          background:'#0D001A',zIndex:20,display:'flex',flexDirection:'column',
+          background:'#2D0A4E',zIndex:20,display:'flex',flexDirection:'column',
           transform:viewMode==='grid'?'translateX(0)':'translateX(100%)',
           transition:'transform 0.32s cubic-bezier(0.22,1,0.36,1)' }}>
 
@@ -745,7 +745,7 @@ export default function HomePage() {
           const isFlash2 = doubleTapFlash === p.id;
           return (
             <div key={p.id}
-              style={{ position:'fixed',inset:0,zIndex:100,background:'#0D001A',
+              style={{ position:'fixed',inset:0,zIndex:100,background:'#2D0A4E',
                 animation:'slide-up 0.25s cubic-bezier(0.22,1,0.36,1)' }}>
               {/* Blurred bg */}
               {p.image_url ? (
@@ -753,7 +753,7 @@ export default function HomePage() {
                   style={{ position:'absolute',inset:0,width:'100%',height:'100%',objectFit:'cover',
                     filter:'blur(24px) saturate(1.2)',transform:'scale(1.08)',zIndex:0 }} />
               ) : (
-                <div style={{ position:'absolute',inset:0,background:`linear-gradient(160deg,${h1},${h2},#0D001A)`,zIndex:0 }}>
+                <div style={{ position:'absolute',inset:0,background:`linear-gradient(160deg,${h1},${h2},#2D0A4E)`,zIndex:0 }}>
                   <span style={{ position:'absolute',top:'50%',left:'50%',transform:'translate(-50%,-50%)',fontSize:120,opacity:.18 }}>
                     {catEmoji(p.category)}
                   </span>
@@ -913,7 +913,7 @@ export default function HomePage() {
           <div style={{ position:'fixed',inset:0,zIndex:300,display:'flex',alignItems:'flex-end',justifyContent:'center' }}
             onClick={()=>setVariantTarget(null)}>
             <div style={{ position:'absolute',inset:0,background:'rgba(0,0,0,0.7)' }} />
-            <div style={{ position:'relative',width:'100%',maxWidth:430,background:'#0D001A',
+            <div style={{ position:'relative',width:'100%',maxWidth:430,background:'#2D0A4E',
               borderRadius:'22px 22px 0 0',border:'1px solid rgba(245,158,11,0.2)',borderBottom:'none',
               paddingBottom:'env(safe-area-inset-bottom)' }}
               onClick={e=>e.stopPropagation()}>
@@ -967,7 +967,7 @@ export default function HomePage() {
         {cartOpen && (
           <div style={{ position:'fixed',inset:0,zIndex:200,display:'flex',alignItems:'flex-end',justifyContent:'center' }}>
             <div style={{ position:'absolute',inset:0,background:'rgba(0,0,0,0.72)' }} onClick={()=>setCartOpen(false)} />
-            <div style={{ position:'relative',width:'100%',maxWidth:430,maxHeight:'88dvh',overflowY:'auto',scrollbarWidth:'none',background:'#0D001A',borderRadius:'22px 22px 0 0',border:'1px solid rgba(245,158,11,0.18)',borderBottom:'none' }}>
+            <div style={{ position:'relative',width:'100%',maxWidth:430,maxHeight:'88dvh',overflowY:'auto',scrollbarWidth:'none',background:'#2D0A4E',borderRadius:'22px 22px 0 0',border:'1px solid rgba(245,158,11,0.18)',borderBottom:'none' }}>
               <div style={{ width:36,height:4,borderRadius:2,background:'rgba(255,255,255,0.18)',margin:'12px auto 0' }} />
               <div style={{ display:'flex',alignItems:'center',justifyContent:'space-between',padding:'14px 18px 12px',borderBottom:'1px solid rgba(255,255,255,0.06)' }}>
                 <span style={{ color:'white',fontWeight:700,fontSize:16 }}>Cart <span style={{ color:'rgba(255,255,255,0.3)',fontWeight:400,fontSize:13 }}>({cartCount})</span></span>
