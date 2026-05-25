@@ -299,7 +299,7 @@ export default function HomePage() {
   }
 
   const HEADER_H  = 64;
-  const STORIES_H = 96;
+  const STORIES_H = 118;
   const TOP_H     = HEADER_H + STORIES_H;
 
   return (
@@ -328,24 +328,29 @@ export default function HomePage() {
           style={{ position:'absolute',top:HEADER_H,left:0,right:0,zIndex:40,height:STORIES_H,
           display:'flex',alignItems:'center',overflowX:'auto',padding:'0 10px',
           scrollbarWidth:'none',background:'#2D0A4E',borderBottom:'1px solid rgba(245,158,11,0.12)' }}>
-          {allCats.map(c => {
+          {allCats.map((c, idx) => {
             const name   = c || 'All';
             const active = cat === c;
             return (
               <button key={c||'all'} onClick={()=>setCat(c)}
-                style={{ display:'flex',flexDirection:'column',alignItems:'center',gap:5,flexShrink:0,
+                className="cat-item"
+                style={{ display:'flex',flexDirection:'column',alignItems:'center',gap:6,flexShrink:0,
                   background:'none',border:'none',cursor:'pointer',padding:'0 8px',
-                  width:'calc(25vw - 4px)',maxWidth:100 }}>
-                <div style={{ padding:3,borderRadius:'50%',
-                  background:active?'linear-gradient(135deg,#F59E0B,#D97706)':'rgba(255,255,255,0.12)',
-                  boxShadow:active?'0 0 16px rgba(245,158,11,0.6)':'none',transition:'all 0.2s' }}>
-                  <div style={{ width:62,height:62,borderRadius:'50%',overflow:'hidden',
+                  width:'calc(25vw - 4px)',maxWidth:104,
+                  animationDelay:`${idx * 0.07}s` }}>
+                <div
+                  className={active ? 'cat-ring-active' : 'cat-ring-idle'}
+                  style={{ padding:3,borderRadius:'50%',
+                    background:active?'linear-gradient(135deg,#F59E0B,#D97706)':'rgba(255,255,255,0.12)',
+                    transition:'background 0.25s',
+                    animationDelay: active ? '0s' : `${idx * 0.4}s` }}>
+                  <div style={{ width:74,height:74,borderRadius:'50%',overflow:'hidden',
                     border:active?'2.5px solid #2D0A4E':'2px solid rgba(255,255,255,0.06)' }}>
                     <img src={catImg(c)} alt={name} loading="lazy"
                       style={{ width:'100%',height:'100%',objectFit:'cover' }} />
                   </div>
                 </div>
-                <span style={{ fontSize:10,fontWeight:700,letterSpacing:.2,
+                <span style={{ fontSize:11,fontWeight:700,letterSpacing:.2,
                   color:active?'#F59E0B':'rgba(255,255,255,0.6)',
                   maxWidth:'100%',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>
                   {name}
