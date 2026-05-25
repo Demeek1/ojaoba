@@ -435,6 +435,8 @@ export default function HomePage() {
                     </button>
                     <span style={{ color:'rgba(255,255,255,0.7)',fontSize:10,fontWeight:600,letterSpacing:.4 }}>Cart</span>
                   </div>
+
+                  {/* ADD */}
                   <div style={{ display:'flex',flexDirection:'column',alignItems:'center',gap:4 }}>
                     <button disabled={soldOut} className="btn-press"
                       onClick={e=>{e.stopPropagation();handleAddClick(p);}}
@@ -447,7 +449,7 @@ export default function HomePage() {
                         boxShadow:cqty>0?'0 0 14px rgba(34,197,94,0.35)':'none' }}>
                       <Plus size={24} color={cqty>0?'#22C55E':'white'} />
                     </button>
-                    <span style={{ color:cqty>0?'#22C55E':'rgba(255,255,255,0.5)',fontSize:10,fontWeight:600,letterSpacing:.3 }}>{cqty>0?cqty:'Add'}</span>
+                    <span style={{ color:cqty>0?'#22C55E':'rgba(255,255,255,0.7)',fontSize:10,fontWeight:600,letterSpacing:.3 }}>{cqty>0?cqty:'Add'}</span>
                   </div>
 
                   {/* Minus */}
