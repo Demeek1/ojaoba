@@ -581,9 +581,11 @@ export default function HomePage() {
             </span>
           </div>
 
-          {/* 3-column scrollable grid */}
-          <div ref={gridRef} style={{ flex:1,overflowY:'auto',scrollbarWidth:'none',padding:'10px 20px 30px',
-            display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:20,alignContent:'start' }}>
+          {/* 3-column scrollable grid — gap/padding sized to fit any phone width */}
+          <div ref={gridRef} style={{ flex:1,overflowY:'auto',overflowX:'hidden',scrollbarWidth:'none',
+            padding:'10px 8px 30px',display:'grid',
+            gridTemplateColumns:'repeat(3,1fr)',gap:8,alignContent:'start' }}>
+
             {products.map(p => {
               const range2    = priceRange(p);
               const [gg1,gg2] = grad(p.category);
@@ -593,68 +595,71 @@ export default function HomePage() {
                 <div key={p.id}
                   style={{ background:'rgba(255,255,255,0.05)',
                     border:`1.5px solid ${gcqty>0?'rgba(245,158,11,0.5)':'rgba(255,255,255,0.1)'}`,
-                    borderRadius:14,overflow:'visible',
+                    borderRadius:12,overflow:'hidden',
                     display:'flex',flexDirection:'column',width:'100%',
-                    transition:'border-color 0.2s',position:'relative',
-                    boxShadow:gcqty>0?'0 0 10px rgba(245,158,11,0.15)':'none' }}>
+                    transition:'border-color 0.2s,box-shadow 0.2s',
+                    boxShadow:gcqty>0?'0 0 10px rgba(245,158,11,0.18)':'none' }}>
 
-                  {/* Square image — tappable to open detail */}
+                  {/* Square image area — tap to open detail, + button lives inside here */}
                   <div onClick={()=>setSelectedProduct(p)}
-                    style={{ width:'100%',aspectRatio:'1',overflow:'hidden',
+                    style={{ width:'100%',aspectRatio:'1',
                       background:p.image_url?'#111':`linear-gradient(135deg,${gg1},${gg2})`,
-                      borderRadius:'12px 12px 0 0',position:'relative',flexShrink:0,cursor:'pointer' }}>
+                      position:'relative',flexShrink:0,cursor:'pointer',overflow:'hidden' }}>
+
                     {p.image_url ? (
                       <img src={p.image_url} alt={p.title} loading="lazy"
-                        style={{ width:'100%',height:'100%',objectFit:'cover' }} />
+                        style={{ width:'100%',height:'100%',objectFit:'cover',display:'block' }} />
                     ) : (
                       <span style={{ position:'absolute',inset:0,display:'flex',alignItems:'center',
                         justifyContent:'center',fontSize:28,opacity:.65 }}>
                         {catEmoji(p.category)}
                       </span>
                     )}
+
                     {soldOutG && (
                       <div style={{ position:'absolute',inset:0,background:'rgba(0,0,0,0.6)',
-                        display:'flex',alignItems:'center',justifyContent:'center',
-                        borderRadius:'12px 12px 0 0' }}>
+                        display:'flex',alignItems:'center',justifyContent:'center' }}>
                         <span style={{ color:'#F87171',fontSize:9,fontWeight:700,letterSpacing:.5 }}>SOLD OUT</span>
                       </div>
                     )}
-                    {/* Cart qty badge — top-left */}
+
+                    {/* qty badge — top-left */}
                     {gcqty>0 && (
-                      <div style={{ position:'absolute',top:5,left:5,minWidth:20,height:20,
-                        borderRadius:10,background:'#EF4444',display:'flex',alignItems:'center',
-                        justifyContent:'center',padding:'0 5px',zIndex:5,
-                        boxShadow:'0 2px 8px rgba(0,0,0,0.5)' }}>
-                        <span style={{ color:'white',fontSize:10,fontWeight:800,lineHeight:1 }}>{gcqty}</span>
+                      <div style={{ position:'absolute',top:5,left:5,minWidth:18,height:18,
+                        borderRadius:9,background:'#EF4444',display:'flex',alignItems:'center',
+                        justifyContent:'center',padding:'0 4px',zIndex:5,
+                        boxShadow:'0 2px 6px rgba(0,0,0,0.5)' }}>
+                        <span style={{ color:'white',fontSize:9,fontWeight:800,lineHeight:1 }}>{gcqty}</span>
                       </div>
                     )}
+
+                    {/* + button — bottom-right INSIDE image, never overflows card */}
+                    <button disabled={soldOutG} className="btn-press"
+                      onClick={e=>{ e.stopPropagation(); handleAddClick(p); }}
+                      style={{ position:'absolute',bottom:6,right:6,
+                        width:28,height:28,borderRadius:'50%',zIndex:5,
+                        background:soldOutG?'rgba(0,0,0,0.5)':gcqty>0?'#F59E0B':'rgba(13,0,26,0.82)',
+                        border:`2px solid ${soldOutG?'rgba(255,255,255,0.15)':gcqty>0?'#D97706':'rgba(245,158,11,0.9)'}`,
+                        boxShadow:soldOutG?'none':gcqty>0?'0 0 10px rgba(245,158,11,0.7)':'0 2px 8px rgba(0,0,0,0.6)',
+                        backdropFilter:'blur(4px)',
+                        cursor:soldOutG?'not-allowed':'pointer',opacity:soldOutG?0.3:1,
+                        display:'flex',alignItems:'center',justifyContent:'center',
+                        padding:0,transition:'all 0.15s',flexShrink:0 }}>
+                      <Plus size={15} color={gcqty>0&&!soldOutG?'#000':'#F59E0B'} strokeWidth={3} />
+                    </button>
                   </div>
 
                   {/* Card info */}
-                  <div style={{ padding:'7px 8px 8px',display:'flex',flexDirection:'column',gap:3 }}>
+                  <div style={{ padding:'7px 8px 9px',display:'flex',flexDirection:'column',gap:2 }}>
                     <p style={{ color:'rgba(255,255,255,0.88)',fontSize:10,fontWeight:600,margin:0,
                       overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',lineHeight:1.3 }}>
                       {p.title}
                     </p>
-                    <p style={{ color:'#F59E0B',fontSize:11,fontWeight:900,margin:0,
+                    <p style={{ color:'#F59E0B',fontSize:10,fontWeight:900,margin:0,
                       overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>
                       {range2 ? `${fmt(range2.min)}–${fmt(range2.max)}` : fmt(p.price_kobo)}
                     </p>
                   </div>
-
-                  {/* + button — absolutely placed at bottom-right corner, outside overflow:hidden */}
-                  <button disabled={soldOutG} className="btn-press"
-                    onClick={e=>{ e.stopPropagation(); handleAddClick(p); }}
-                    style={{ position:'absolute',bottom:-12,right:-12,
-                      width:30,height:30,borderRadius:'50%',zIndex:10,
-                      background:soldOutG?'rgba(40,40,40,0.9)':gcqty>0?'#F59E0B':'rgba(30,20,50,0.95)',
-                      border:`2px solid ${soldOutG?'rgba(255,255,255,0.1)':gcqty>0?'#D97706':'rgba(245,158,11,0.8)'}`,
-                      boxShadow:soldOutG?'none':gcqty>0?'0 0 12px rgba(245,158,11,0.6)':'0 2px 10px rgba(0,0,0,0.5)',
-                      cursor:soldOutG?'not-allowed':'pointer',opacity:soldOutG?0.35:1,
-                      display:'flex',alignItems:'center',justifyContent:'center',
-                      padding:0,transition:'all 0.15s' }}>
-                    <Plus size={16} color={gcqty>0&&!soldOutG?'#000':'#F59E0B'} strokeWidth={3} />
-                  </button>
                 </div>
               );
             })}
