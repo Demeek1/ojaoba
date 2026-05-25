@@ -386,10 +386,9 @@ export default function HomePage() {
                   scrollSnapAlign:'start',flexShrink:0,overflow:'hidden' }}
                 onClick={() => handleSlideTap(p)}>
 
-                {/* Background — solid gradient (no blur = faster paint) */}
+                {/* Background */}
                 {p.image_url ? (
-                  <div style={{ position:'absolute',inset:0,
-                    background:`linear-gradient(160deg,${g1}88,${g2}55,#2D0A4E)`,zIndex:0 }} />
+                  <div style={{ position:'absolute',inset:0,background:'#2D0A4E',zIndex:0 }} />
                 ) : (
                   <div style={{ position:'absolute',inset:0,background:`linear-gradient(160deg,${g1},${g2},#2D0A4E)`,zIndex:0 }}>
                     <span style={{ position:'absolute',top:'50%',left:'50%',transform:'translate(-50%,-50%)',fontSize:120,opacity:.18 }}>{catEmoji(p.category)}</span>
