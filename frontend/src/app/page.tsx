@@ -3,7 +3,7 @@ import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
-import { ShoppingCart, Plus, Minus, Heart, User, X, ChevronDown, ChevronUp, ChevronLeft } from 'lucide-react';
+import { ShoppingCart, Plus, Minus, Heart, User, X, ChevronDown, ChevronUp, ChevronLeft, LayoutGrid } from 'lucide-react';
 import api, { fmt } from '@/lib/api';
 import { loadCart, saveCart, CartItem } from '@/lib/cart';
 
@@ -215,19 +215,22 @@ export default function HomePage() {
   function onTouchEnd(e: React.TouchEvent) {
     const dx = touchX.current - e.changedTouches[0].clientX;
     const dy = touchY.current - e.changedTouches[0].clientY;
-    if (Math.abs(dx) < Math.abs(dy) || Math.abs(dx) < 50) return;
+    // Need a clear horizontal swipe (more horizontal than vertical, and ≥ 60px)
+    if (Math.abs(dx) < Math.abs(dy) || Math.abs(dx) < 60) return;
     if (viewMode === 'feed') {
-      if (dx > 0) setViewMode('grid');   // swipe left  → open grid
-      else {                              // swipe right → prev category
-        const ci = allCats.indexOf(cat);
-        setCat(allCats[(ci-1+allCats.length) % allCats.length]);
-      }
+      // Feed: left swipe only → open grid. Right swipe does nothing (prevents accidental category jump)
+      if (dx > 0) setViewMode('grid');
     } else {
-      if (dx < 0) setViewMode('feed');   // swipe right → back to feed
-      else {                              // swipe left  → next category (stay in grid)
-        const ci = allCats.indexOf(cat);
-        setCat(allCats[(ci+1) % allCats.length]);
+      // Grid: any horizontal swipe → go to feed view of next/prev category
+      const ci = allCats.indexOf(cat);
+      if (dx > 0) {
+        // Swipe left → next category, open in feed
+        setCat(allCats[(ci + 1) % allCats.length]);
+      } else {
+        // Swipe right → prev category, open in feed
+        setCat(allCats[(ci - 1 + allCats.length) % allCats.length]);
       }
+      setViewMode('feed');
     }
   }
 
@@ -383,22 +386,22 @@ export default function HomePage() {
                   scrollSnapAlign:'start',flexShrink:0,overflow:'hidden' }}
                 onClick={() => handleSlideTap(p)}>
 
-                {/* Blurred background — static, no bob */}
+                {/* Background — solid gradient (no blur = faster paint) */}
                 {p.image_url ? (
-                  <img src={p.image_url} alt="" aria-hidden
-                    loading={i < 2 ? 'eager' : 'lazy'}
-                    style={{ position:'absolute',inset:0,width:'100%',height:'100%',objectFit:'cover',
-                      filter:'blur(24px) saturate(1.2)',transform:'scale(1.08)',zIndex:0 }} />
+                  <div style={{ position:'absolute',inset:0,
+                    background:`linear-gradient(160deg,${g1}88,${g2}55,#0D001A)`,zIndex:0 }} />
                 ) : (
                   <div style={{ position:'absolute',inset:0,background:`linear-gradient(160deg,${g1},${g2},#0D001A)`,zIndex:0 }}>
                     <span style={{ position:'absolute',top:'50%',left:'50%',transform:'translate(-50%,-50%)',fontSize:120,opacity:.18 }}>{catEmoji(p.category)}</span>
                   </div>
                 )}
 
-                {/* Product image — bobs up and down on first card to hint scroll */}
+                {/* Product image */}
                 {p.image_url && (
                   <img src={p.image_url} alt={p.title}
-                    loading={i < 2 ? 'eager' : 'lazy'}
+                    loading={i < 3 ? 'eager' : 'lazy'}
+                    decoding="async"
+                    fetchPriority={i === 0 ? 'high' : 'auto'}
                     className={i === 0 ? 'img-float' : ''}
                     style={{ position:'absolute',inset:0,width:'100%',height:'100%',
                       objectFit:'contain',objectPosition:'center 38%',zIndex:1 }} />
@@ -434,11 +437,11 @@ export default function HomePage() {
                     {cartCount===0&&<span style={{ color:'rgba(255,255,255,0.7)',fontSize:10,fontWeight:600,letterSpacing:.4 }}>Cart</span>}
                   </div>
 
-                  {/* ADD / qty — variant products open picker, normal products increment */}
-                  <div style={{ display:'flex',flexDirection:'column',alignItems:'center',gap:3 }}>
+                  {/* ADD */}
+                  <div style={{ display:'flex',flexDirection:'column',alignItems:'center',gap:4 }}>
                     <button disabled={soldOut} className="btn-press"
                       onClick={e=>{e.stopPropagation();handleAddClick(p);}}
-                      style={{ width:52,height:52,borderRadius:'50%',
+                      style={{ position:'relative',width:52,height:52,borderRadius:'50%',
                         border:`1.5px solid ${soldOut?'rgba(255,255,255,0.08)':cqty>0?'rgba(245,158,11,0.7)':'rgba(255,255,255,0.28)'}`,
                         background:soldOut?'rgba(255,255,255,0.04)':cqty>0?'rgba(245,158,11,0.18)':'rgba(0,0,0,0.5)',
                         backdropFilter:'blur(10px)',cursor:soldOut?'not-allowed':'pointer',
@@ -446,15 +449,12 @@ export default function HomePage() {
                         opacity:soldOut?0.35:1,
                         boxShadow:cqty>0?'0 0 14px rgba(245,158,11,0.35)':'none' }}>
                       <Plus size={24} color={cqty>0?'#F59E0B':'white'} />
+                      {cqty>0&&<span style={{ position:'absolute',top:-5,right:-5,minWidth:20,height:20,
+                        padding:'0 4px',borderRadius:10,background:'#F59E0B',color:'#000',
+                        fontSize:11,fontWeight:900,display:'flex',alignItems:'center',justifyContent:'center',
+                        boxShadow:'0 0 8px rgba(245,158,11,0.6)' }}>{cqty}</span>}
                     </button>
-                    {/* qty number — turns gold and bigger when items in cart */}
-                    <span style={{
-                      color:cqty>0?'#F59E0B':'rgba(255,255,255,0.45)',
-                      fontSize:cqty>0?20:16,fontWeight:800,lineHeight:1,
-                      transition:'font-size 0.15s, color 0.15s',
-                      textShadow:cqty>0?'0 0 10px rgba(245,158,11,0.5)':'none' }}>
-                      {cqty}
-                    </span>
+                    <span style={{ color:cqty>0?'#F59E0B':'rgba(255,255,255,0.5)',fontSize:10,fontWeight:600,letterSpacing:.3 }}>Add</span>
                   </div>
 
                   {/* Minus */}
@@ -468,10 +468,10 @@ export default function HomePage() {
                         opacity:cqty===0?0.3:1,transition:'opacity 0.15s' }}>
                       <Minus size={22} color="white" />
                     </button>
-                    <span style={{ color:'rgba(255,255,255,0.35)',fontSize:10 }}>Qty</span>
+                    <span style={{ color:'rgba(255,255,255,0.35)',fontSize:10 }}>Remove</span>
                   </div>
 
-                  {/* Heart */}
+                  {/* Heart / Save */}
                   <div style={{ display:'flex',flexDirection:'column',alignItems:'center',gap:4 }}>
                     <button onClick={e=>{e.stopPropagation();setFavs(f=>f.includes(p.id)?f.filter(x=>x!==p.id):[...f,p.id]);}}
                       style={{ width:52,height:52,borderRadius:'50%',
@@ -482,6 +482,18 @@ export default function HomePage() {
                       <Heart size={22} color={isFav?'#EF4444':'white'} fill={isFav?'#EF4444':'none'} />
                     </button>
                     <span style={{ color:'rgba(255,255,255,0.3)',fontSize:10 }}>Save</span>
+                  </div>
+
+                  {/* Grid — opens the grid panel */}
+                  <div style={{ display:'flex',flexDirection:'column',alignItems:'center',gap:4 }}>
+                    <button onClick={e=>{e.stopPropagation();setViewMode('grid');}}
+                      style={{ width:52,height:52,borderRadius:'50%',
+                        border:'1.5px solid rgba(255,255,255,0.2)',background:'rgba(0,0,0,0.5)',
+                        backdropFilter:'blur(10px)',cursor:'pointer',
+                        display:'flex',alignItems:'center',justifyContent:'center',transition:'all 0.2s' }}>
+                      <LayoutGrid size={22} color="white" />
+                    </button>
+                    <span style={{ color:'rgba(255,255,255,0.3)',fontSize:10 }}>Grid</span>
                   </div>
                 </div>
 
@@ -629,7 +641,8 @@ export default function HomePage() {
 
                   {/* Product image */}
                   {p.image_url ? (
-                    <img src={p.image_url} alt={p.title} loading="lazy"
+                    <img src={p.image_url} alt={p.title}
+                      loading="lazy" decoding="async"
                       onError={e=>{ (e.target as HTMLImageElement).style.display='none'; }}
                       style={{ width:'100%',aspectRatio:'3/4',objectFit:'cover',display:'block' }} />
                   ) : (
@@ -772,9 +785,10 @@ export default function HomePage() {
                   </div>
                 </div>
               )}
-              {/* RIGHT ACTIONS */}
+              {/* RIGHT ACTIONS — detail overlay */}
               <div style={{ position:'absolute',right:12,bottom:140,zIndex:10,
                 display:'flex',flexDirection:'column',alignItems:'center',gap:14 }}>
+                {/* Cart */}
                 <div style={{ display:'flex',flexDirection:'column',alignItems:'center',gap:4 }}>
                   <button onClick={()=>setCartOpen(true)}
                     style={{ position:'relative',width:52,height:52,borderRadius:'50%',
@@ -786,24 +800,25 @@ export default function HomePage() {
                   </button>
                   {cartCount===0&&<span style={{ color:'rgba(255,255,255,0.7)',fontSize:10,fontWeight:600 }}>Cart</span>}
                 </div>
-                <div style={{ display:'flex',flexDirection:'column',alignItems:'center',gap:3 }}>
+                {/* Add */}
+                <div style={{ display:'flex',flexDirection:'column',alignItems:'center',gap:4 }}>
                   <button disabled={soldOut2} className="btn-press"
                     onClick={()=>handleAddClick(p)}
-                    style={{ width:52,height:52,borderRadius:'50%',
+                    style={{ position:'relative',width:52,height:52,borderRadius:'50%',
                       border:`1.5px solid ${soldOut2?'rgba(255,255,255,0.08)':cqty2>0?'rgba(245,158,11,0.7)':'rgba(255,255,255,0.28)'}`,
                       background:soldOut2?'rgba(255,255,255,0.04)':cqty2>0?'rgba(245,158,11,0.18)':'rgba(0,0,0,0.5)',
                       backdropFilter:'blur(10px)',cursor:soldOut2?'not-allowed':'pointer',
                       display:'flex',alignItems:'center',justifyContent:'center',opacity:soldOut2?0.35:1,
                       boxShadow:cqty2>0?'0 0 14px rgba(245,158,11,0.35)':'none' }}>
                     <Plus size={24} color={cqty2>0?'#F59E0B':'white'} />
+                    {cqty2>0&&<span style={{ position:'absolute',top:-5,right:-5,minWidth:20,height:20,
+                      padding:'0 4px',borderRadius:10,background:'#F59E0B',color:'#000',
+                      fontSize:11,fontWeight:900,display:'flex',alignItems:'center',justifyContent:'center',
+                      boxShadow:'0 0 8px rgba(245,158,11,0.6)' }}>{cqty2}</span>}
                   </button>
-                  <span style={{ color:cqty2>0?'#F59E0B':'rgba(255,255,255,0.45)',
-                    fontSize:cqty2>0?20:16,fontWeight:800,lineHeight:1,
-                    transition:'font-size 0.15s,color 0.15s',
-                    textShadow:cqty2>0?'0 0 10px rgba(245,158,11,0.5)':'none' }}>
-                    {cqty2}
-                  </span>
+                  <span style={{ color:cqty2>0?'#F59E0B':'rgba(255,255,255,0.5)',fontSize:10,fontWeight:600,letterSpacing:.3 }}>Add</span>
                 </div>
+                {/* Remove */}
                 <div style={{ display:'flex',flexDirection:'column',alignItems:'center',gap:4 }}>
                   <button disabled={cqty2===0} className="btn-press"
                     onClick={()=>decrement(p.id)}
@@ -813,8 +828,9 @@ export default function HomePage() {
                       display:'flex',alignItems:'center',justifyContent:'center',opacity:cqty2===0?0.3:1 }}>
                     <Minus size={22} color="white" />
                   </button>
-                  <span style={{ color:'rgba(255,255,255,0.35)',fontSize:10 }}>Qty</span>
+                  <span style={{ color:'rgba(255,255,255,0.35)',fontSize:10 }}>Remove</span>
                 </div>
+                {/* Save */}
                 <div style={{ display:'flex',flexDirection:'column',alignItems:'center',gap:4 }}>
                   <button onClick={()=>setFavs(f=>f.includes(p.id)?f.filter(x=>x!==p.id):[...f,p.id])}
                     style={{ width:52,height:52,borderRadius:'50%',
@@ -825,6 +841,17 @@ export default function HomePage() {
                     <Heart size={22} color={isFav2?'#EF4444':'white'} fill={isFav2?'#EF4444':'none'} />
                   </button>
                   <span style={{ color:'rgba(255,255,255,0.3)',fontSize:10 }}>Save</span>
+                </div>
+                {/* Grid */}
+                <div style={{ display:'flex',flexDirection:'column',alignItems:'center',gap:4 }}>
+                  <button onClick={()=>{ setSelectedProduct(null); setViewMode('grid'); }}
+                    style={{ width:52,height:52,borderRadius:'50%',
+                      border:'1.5px solid rgba(255,255,255,0.2)',background:'rgba(0,0,0,0.5)',
+                      backdropFilter:'blur(10px)',cursor:'pointer',
+                      display:'flex',alignItems:'center',justifyContent:'center',transition:'all 0.2s' }}>
+                    <LayoutGrid size={22} color="white" />
+                  </button>
+                  <span style={{ color:'rgba(255,255,255,0.3)',fontSize:10 }}>Grid</span>
                 </div>
               </div>
               {/* BOTTOM INFO */}
