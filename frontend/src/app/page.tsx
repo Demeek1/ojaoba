@@ -182,14 +182,19 @@ export default function HomePage() {
   useEffect(() => {
     const el = gridRef.current;
     if (!el) return;
-    const onGridScroll = () => {
+    const tryLoad = () => {
       const rem = el.scrollHeight - el.scrollTop - el.clientHeight;
-      // Trigger early (1.5× visible height before bottom) for smooth experience
-      if (rem < el.clientHeight * 1.5 && !fetching.current && !allLoaded.current)
+      if (rem < el.clientHeight * 2 && !fetching.current && !allLoaded.current)
         fetchPage(nextPage.current, false);
     };
-    el.addEventListener('scroll', onGridScroll, { passive:true });
-    return () => el.removeEventListener('scroll', onGridScroll);
+    el.addEventListener('scroll', tryLoad, { passive:true });
+    // Also fire immediately when grid becomes visible — if all 24 products fit
+    // on screen without needing to scroll, the scroll event never fires
+    if (viewMode === 'grid') {
+      const t = setTimeout(tryLoad, 350); // after slide-in animation
+      return () => { el.removeEventListener('scroll', tryLoad); clearTimeout(t); };
+    }
+    return () => el.removeEventListener('scroll', tryLoad);
   }, [fetchPage, viewMode]); // re-attach when grid becomes visible
 
   const allCats = useMemo(() => ['', ...rawCats], [rawCats]);
@@ -609,9 +614,9 @@ export default function HomePage() {
                     transition:'border-color 0.2s,box-shadow 0.2s',
                     boxShadow:gcqty>0?'0 0 10px rgba(245,158,11,0.18)':'none' }}>
 
-                  {/* Square image area — tap to open detail, + button lives inside here */}
+                  {/* Image area — tap to open detail, + button lives inside here */}
                   <div onClick={()=>setSelectedProduct(p)}
-                    style={{ width:'100%',aspectRatio:'1',
+                    style={{ width:'100%',aspectRatio:'4/3',
                       background:p.image_url?'#111':`linear-gradient(135deg,${gg1},${gg2})`,
                       position:'relative',flexShrink:0,cursor:'pointer',overflow:'hidden' }}>
 
@@ -658,15 +663,16 @@ export default function HomePage() {
                     </button>
                   </div>
 
-                  {/* Card info */}
-                  <div style={{ padding:'7px 8px 9px',display:'flex',flexDirection:'column',gap:2 }}>
-                    <p style={{ color:'rgba(255,255,255,0.88)',fontSize:10,fontWeight:600,margin:0,
-                      overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',lineHeight:1.3 }}>
+                  {/* Card info — always visible below image */}
+                  <div style={{ padding:'6px 7px 8px',display:'flex',flexDirection:'column',gap:3,
+                    background:'rgba(0,0,0,0.25)',flexShrink:0 }}>
+                    <p style={{ color:'rgba(255,255,255,0.95)',fontSize:11,fontWeight:700,margin:0,
+                      overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',lineHeight:1.4 }}>
                       {p.title}
                     </p>
-                    <p style={{ color:'#F59E0B',fontSize:10,fontWeight:900,margin:0,
-                      overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>
-                      {range2 ? `${fmt(range2.min)}–${fmt(range2.max)}` : fmt(p.price_kobo)}
+                    <p style={{ color:'#F59E0B',fontSize:12,fontWeight:900,margin:0,
+                      overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',lineHeight:1.3 }}>
+                      {range2 ? `${fmt(range2.min)} – ${fmt(range2.max)}` : fmt(p.price_kobo)}
                     </p>
                   </div>
                 </div>
