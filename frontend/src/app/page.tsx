@@ -614,11 +614,12 @@ export default function HomePage() {
 
           {/* Scroll wrapper — separated from grid layout for reliable iOS scroll */}
           <div ref={gridRef} style={{ flex:1,overflowY:'auto',overflowX:'hidden',
-            WebkitOverflowScrolling:'touch' as any,scrollbarWidth:'none' }}>
+            WebkitOverflowScrolling:'touch' as any,scrollbarWidth:'none',
+            willChange:'scroll-position',contain:'strict' }}>
 
             {/* Inner grid */}
             <div style={{ display:'grid',gridTemplateColumns:'repeat(3,1fr)',
-              gap:8,padding:'10px 8px 40px',alignItems:'start' }}>
+              gap:6,padding:'8px 6px 40px' }}>
 
             {products.map(p => {
               const range2    = priceRange(p);
@@ -626,22 +627,24 @@ export default function HomePage() {
               const gcqty     = getQty(p.id);
               const soldOutG  = p.inventory === 0;
               return (
-                /* Card — image fills card, text overlaid at bottom */
+                /* Card — fixed aspect ratio keeps grid uniform even on image error */
                 <div key={p.id}
                   onClick={()=>setSelectedProduct(p)}
                   style={{ position:'relative',borderRadius:12,overflow:'hidden',
+                    aspectRatio:'3/4',
                     cursor:'pointer',
                     border:`1.5px solid ${gcqty>0?'rgba(245,158,11,0.6)':'rgba(255,255,255,0.1)'}`,
                     boxShadow:gcqty>0?'0 0 10px rgba(245,158,11,0.25)':'none',
                     transition:'border-color 0.2s,box-shadow 0.2s',
-                    background:p.image_url?'#111':`linear-gradient(135deg,${gg1},${gg2})` }}>
+                    background:p.image_url?'#2D0A4E':`linear-gradient(135deg,${gg1},${gg2})` }}>
 
                   {/* Product image */}
                   {p.image_url ? (
                     <img src={p.image_url} alt={p.title}
-                      loading="lazy" decoding="async"
-                      onError={e=>{ (e.target as HTMLImageElement).style.display='none'; }}
-                      style={{ width:'100%',aspectRatio:'3/4',objectFit:'cover',display:'block' }} />
+                      loading={products.indexOf(p)<9?'eager':'lazy'}
+                      fetchPriority={products.indexOf(p)<3?'high':'auto'}
+                      decoding="async"
+                      style={{ width:'100%',height:'100%',objectFit:'cover',display:'block' }} />
                   ) : (
                     <div style={{ width:'100%',aspectRatio:'3/4',display:'flex',
                       alignItems:'center',justifyContent:'center',fontSize:32,opacity:.7 }}>
@@ -689,7 +692,7 @@ export default function HomePage() {
                     onClick={e=>{ e.stopPropagation(); handleAddClick(p); }}
                     style={{ position:'absolute',bottom:7,right:7,
                       width:30,height:30,borderRadius:'50%',zIndex:5,
-                      background:soldOutG?'rgba(0,0,0,0.45)':gcqty>0?'#F59E0B':'rgba(13,0,26,0.85)',
+                      background:soldOutG?'rgba(0,0,0,0.45)':gcqty>0?'#F59E0B':'rgba(45,10,78,0.85)',
                       border:`2px solid ${soldOutG?'rgba(255,255,255,0.1)':gcqty>0?'#D97706':'rgba(245,158,11,0.9)'}`,
                       boxShadow:soldOutG?'none':gcqty>0?'0 0 12px rgba(245,158,11,0.7)':'0 2px 10px rgba(0,0,0,0.7)',
                       backdropFilter:'blur(6px)',
