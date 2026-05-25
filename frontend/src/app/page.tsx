@@ -585,47 +585,74 @@ export default function HomePage() {
           <div ref={gridRef} style={{ flex:1,overflowY:'auto',scrollbarWidth:'none',padding:'10px 8px 20px',
             display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:8,alignContent:'start' }}>
             {products.map(p => {
-              const range2  = priceRange(p);
+              const range2    = priceRange(p);
               const [gg1,gg2] = grad(p.category);
+              const gcqty     = getQty(p.id);
+              const soldOutG  = p.inventory === 0;
               return (
-                <button key={p.id} onClick={()=>setSelectedProduct(p)}
+                <div key={p.id}
                   style={{ background:'rgba(255,255,255,0.04)',
-                    border:'1px solid rgba(255,255,255,0.08)',
-                    borderRadius:12,padding:0,cursor:'pointer',overflow:'hidden',
-                    display:'flex',flexDirection:'column',textAlign:'left',width:'100%',
-                    transition:'transform 0.12s' }}>
-                  {/* Square image */}
-                  <div style={{ width:'100%',aspectRatio:'1',overflow:'hidden',
-                    background:p.image_url?'#111':`linear-gradient(135deg,${gg1},${gg2})`,
-                    position:'relative',flexShrink:0 }}>
-                    {p.image_url ? (
-                      <img src={p.image_url} alt={p.title} loading="lazy"
-                        style={{ width:'100%',height:'100%',objectFit:'cover' }} />
-                    ) : (
-                      <span style={{ position:'absolute',inset:0,display:'flex',alignItems:'center',
-                        justifyContent:'center',fontSize:28,opacity:.65 }}>
-                        {catEmoji(p.category)}
-                      </span>
-                    )}
-                    {p.inventory===0 && (
-                      <div style={{ position:'absolute',inset:0,background:'rgba(0,0,0,0.55)',
-                        display:'flex',alignItems:'center',justifyContent:'center' }}>
-                        <span style={{ color:'#F87171',fontSize:9,fontWeight:700 }}>SOLD OUT</span>
-                      </div>
-                    )}
-                  </div>
-                  {/* Card info */}
-                  <div style={{ padding:'6px 7px 9px',flex:1,display:'flex',flexDirection:'column',gap:2 }}>
+                    border:`1px solid ${gcqty>0?'rgba(245,158,11,0.35)':'rgba(255,255,255,0.08)'}`,
+                    borderRadius:12,overflow:'hidden',
+                    display:'flex',flexDirection:'column',width:'100%',
+                    transition:'border-color 0.2s',position:'relative' }}>
+                  {/* Square image — tappable to open detail */}
+                  <button onClick={()=>setSelectedProduct(p)}
+                    style={{ background:'none',border:'none',padding:0,cursor:'pointer',display:'contents' }}>
+                    <div style={{ width:'100%',aspectRatio:'1',overflow:'hidden',
+                      background:p.image_url?'#111':`linear-gradient(135deg,${gg1},${gg2})`,
+                      position:'relative',flexShrink:0 }}>
+                      {p.image_url ? (
+                        <img src={p.image_url} alt={p.title} loading="lazy"
+                          style={{ width:'100%',height:'100%',objectFit:'cover' }} />
+                      ) : (
+                        <span style={{ position:'absolute',inset:0,display:'flex',alignItems:'center',
+                          justifyContent:'center',fontSize:28,opacity:.65 }}>
+                          {catEmoji(p.category)}
+                        </span>
+                      )}
+                      {soldOutG && (
+                        <div style={{ position:'absolute',inset:0,background:'rgba(0,0,0,0.55)',
+                          display:'flex',alignItems:'center',justifyContent:'center' }}>
+                          <span style={{ color:'#F87171',fontSize:9,fontWeight:700 }}>SOLD OUT</span>
+                        </div>
+                      )}
+                      {/* Cart qty badge */}
+                      {gcqty>0 && (
+                        <div style={{ position:'absolute',top:5,left:5,minWidth:20,height:20,
+                          borderRadius:10,background:'#EF4444',display:'flex',alignItems:'center',
+                          justifyContent:'center',padding:'0 5px',
+                          boxShadow:'0 2px 6px rgba(0,0,0,0.4)' }}>
+                          <span style={{ color:'white',fontSize:10,fontWeight:800 }}>{gcqty}</span>
+                        </div>
+                      )}
+                    </div>
+                  </button>
+                  {/* Card info row */}
+                  <div style={{ padding:'6px 7px 7px',flex:1,display:'flex',flexDirection:'column',gap:2 }}>
                     <p style={{ color:'rgba(255,255,255,0.9)',fontSize:10,fontWeight:600,margin:0,
                       overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',lineHeight:1.3 }}>
                       {p.title}
                     </p>
-                    <p style={{ color:'#F59E0B',fontSize:10,fontWeight:900,margin:0,
-                      overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>
-                      {range2 ? `${fmt(range2.min)}–${fmt(range2.max)}` : fmt(p.price_kobo)}
-                    </p>
+                    <div style={{ display:'flex',alignItems:'center',justifyContent:'space-between',gap:4 }}>
+                      <p style={{ color:'#F59E0B',fontSize:10,fontWeight:900,margin:0,
+                        overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',flex:1 }}>
+                        {range2 ? `${fmt(range2.min)}–${fmt(range2.max)}` : fmt(p.price_kobo)}
+                      </p>
+                      {/* + button */}
+                      <button disabled={soldOutG} className="btn-press"
+                        onClick={e=>{ e.stopPropagation(); handleAddClick(p); }}
+                        style={{ width:24,height:24,borderRadius:'50%',flexShrink:0,
+                          background:soldOutG?'rgba(255,255,255,0.06)':gcqty>0?'#F59E0B':'rgba(245,158,11,0.22)',
+                          border:`1.5px solid ${soldOutG?'rgba(255,255,255,0.1)':'rgba(245,158,11,0.6)'}`,
+                          cursor:soldOutG?'not-allowed':'pointer',opacity:soldOutG?0.35:1,
+                          display:'flex',alignItems:'center',justifyContent:'center',
+                          padding:0,transition:'background 0.15s' }}>
+                        <Plus size={14} color={gcqty>0&&!soldOutG?'#000':'#F59E0B'} strokeWidth={3} />
+                      </button>
+                    </div>
                   </div>
-                </button>
+                </div>
               );
             })}
 
