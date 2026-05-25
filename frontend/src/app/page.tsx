@@ -433,10 +433,8 @@ export default function HomePage() {
                       <ShoppingCart size={22} color="#F59E0B" />
                       {cartCount>0&&<span style={{ position:'absolute',top:-4,right:-4,minWidth:18,height:18,padding:'0 4px',borderRadius:9,background:'#EF4444',color:'white',fontSize:10,fontWeight:700,display:'flex',alignItems:'center',justifyContent:'center' }}>{cartCount}</span>}
                     </button>
-                    {cartCount===0&&<span style={{ color:'rgba(255,255,255,0.7)',fontSize:10,fontWeight:600,letterSpacing:.4 }}>Cart</span>}
+                    <span style={{ color:'rgba(255,255,255,0.7)',fontSize:10,fontWeight:600,letterSpacing:.4 }}>Cart</span>
                   </div>
-
-                  {/* ADD */}
                   <div style={{ display:'flex',flexDirection:'column',alignItems:'center',gap:4 }}>
                     <button disabled={soldOut} className="btn-press"
                       onClick={e=>{e.stopPropagation();handleAddClick(p);}}
@@ -793,7 +791,7 @@ export default function HomePage() {
                     <ShoppingCart size={22} color="#F59E0B" />
                     {cartCount>0&&<span style={{ position:'absolute',top:-4,right:-4,minWidth:18,height:18,padding:'0 4px',borderRadius:9,background:'#EF4444',color:'white',fontSize:10,fontWeight:700,display:'flex',alignItems:'center',justifyContent:'center' }}>{cartCount}</span>}
                   </button>
-                  {cartCount===0&&<span style={{ color:'rgba(255,255,255,0.7)',fontSize:10,fontWeight:600 }}>Cart</span>}
+                  <span style={{ color:'rgba(255,255,255,0.7)',fontSize:10,fontWeight:600 }}>Cart</span>
                 </div>
                 {/* Add */}
                 <div style={{ display:'flex',flexDirection:'column',alignItems:'center',gap:4 }}>
