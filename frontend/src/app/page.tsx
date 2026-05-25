@@ -188,14 +188,22 @@ export default function HomePage() {
         fetchPage(nextPage.current, false);
     };
     el.addEventListener('scroll', tryLoad, { passive:true });
-    // Also fire immediately when grid becomes visible — if all 24 products fit
-    // on screen without needing to scroll, the scroll event never fires
-    if (viewMode === 'grid') {
-      const t = setTimeout(tryLoad, 350); // after slide-in animation
-      return () => { el.removeEventListener('scroll', tryLoad); clearTimeout(t); };
-    }
     return () => el.removeEventListener('scroll', tryLoad);
-  }, [fetchPage, viewMode]); // re-attach when grid becomes visible
+  }, [fetchPage, viewMode]);
+
+  // Separate effect: when grid first becomes visible, immediately check if more
+  // products need loading (avoids the stale-closure bug from a delayed timer)
+  useEffect(() => {
+    if (viewMode !== 'grid') return;
+    const el = gridRef.current;
+    if (!el) return;
+    const raf = requestAnimationFrame(() => {
+      const rem = el.scrollHeight - el.scrollTop - el.clientHeight;
+      if (rem < el.clientHeight * 2 && !fetching.current && !allLoaded.current)
+        fetchPage(nextPage.current, false);
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [viewMode, fetchPage]); // eslint-disable-line
 
   const allCats = useMemo(() => ['', ...rawCats], [rawCats]);
 
@@ -595,10 +603,13 @@ export default function HomePage() {
             </span>
           </div>
 
-          {/* 3-column scrollable grid — gap/padding sized to fit any phone width */}
-          <div ref={gridRef} style={{ flex:1,overflowY:'auto',overflowX:'hidden',scrollbarWidth:'none',
-            padding:'10px 8px 30px',display:'grid',
-            gridTemplateColumns:'repeat(3,1fr)',gap:8,alignContent:'start' }}>
+          {/* Scroll wrapper — separated from grid layout for reliable iOS scroll */}
+          <div ref={gridRef} style={{ flex:1,overflowY:'auto',overflowX:'hidden',
+            WebkitOverflowScrolling:'touch' as any,scrollbarWidth:'none' }}>
+
+            {/* Inner grid */}
+            <div style={{ display:'grid',gridTemplateColumns:'repeat(3,1fr)',
+              gap:8,padding:'10px 8px 40px',alignItems:'start' }}>
 
             {products.map(p => {
               const range2    = priceRange(p);
@@ -606,75 +617,77 @@ export default function HomePage() {
               const gcqty     = getQty(p.id);
               const soldOutG  = p.inventory === 0;
               return (
+                /* Card — image fills card, text overlaid at bottom */
                 <div key={p.id}
-                  style={{ background:'rgba(255,255,255,0.05)',
-                    border:`1.5px solid ${gcqty>0?'rgba(245,158,11,0.5)':'rgba(255,255,255,0.1)'}`,
-                    borderRadius:12,overflow:'hidden',
-                    display:'flex',flexDirection:'column',width:'100%',
+                  onClick={()=>setSelectedProduct(p)}
+                  style={{ position:'relative',borderRadius:12,overflow:'hidden',
+                    cursor:'pointer',
+                    border:`1.5px solid ${gcqty>0?'rgba(245,158,11,0.6)':'rgba(255,255,255,0.1)'}`,
+                    boxShadow:gcqty>0?'0 0 10px rgba(245,158,11,0.25)':'none',
                     transition:'border-color 0.2s,box-shadow 0.2s',
-                    boxShadow:gcqty>0?'0 0 10px rgba(245,158,11,0.18)':'none' }}>
+                    background:p.image_url?'#111':`linear-gradient(135deg,${gg1},${gg2})` }}>
 
-                  {/* Image area — tap to open detail, + button lives inside here */}
-                  <div onClick={()=>setSelectedProduct(p)}
-                    style={{ width:'100%',aspectRatio:'4/3',
-                      background:p.image_url?'#111':`linear-gradient(135deg,${gg1},${gg2})`,
-                      position:'relative',flexShrink:0,cursor:'pointer',overflow:'hidden' }}>
+                  {/* Product image */}
+                  {p.image_url ? (
+                    <img src={p.image_url} alt={p.title} loading="lazy"
+                      onError={e=>{ (e.target as HTMLImageElement).style.display='none'; }}
+                      style={{ width:'100%',aspectRatio:'3/4',objectFit:'cover',display:'block' }} />
+                  ) : (
+                    <div style={{ width:'100%',aspectRatio:'3/4',display:'flex',
+                      alignItems:'center',justifyContent:'center',fontSize:32,opacity:.7 }}>
+                      {catEmoji(p.category)}
+                    </div>
+                  )}
 
-                    {p.image_url ? (
-                      <img src={p.image_url} alt={p.title} loading="lazy"
-                        style={{ width:'100%',height:'100%',objectFit:'cover',display:'block' }} />
-                    ) : (
-                      <span style={{ position:'absolute',inset:0,display:'flex',alignItems:'center',
-                        justifyContent:'center',fontSize:28,opacity:.65 }}>
-                        {catEmoji(p.category)}
-                      </span>
-                    )}
-
-                    {soldOutG && (
-                      <div style={{ position:'absolute',inset:0,background:'rgba(0,0,0,0.6)',
-                        display:'flex',alignItems:'center',justifyContent:'center' }}>
-                        <span style={{ color:'#F87171',fontSize:9,fontWeight:700,letterSpacing:.5 }}>SOLD OUT</span>
-                      </div>
-                    )}
-
-                    {/* qty badge — top-left */}
-                    {gcqty>0 && (
-                      <div style={{ position:'absolute',top:5,left:5,minWidth:18,height:18,
-                        borderRadius:9,background:'#EF4444',display:'flex',alignItems:'center',
-                        justifyContent:'center',padding:'0 4px',zIndex:5,
-                        boxShadow:'0 2px 6px rgba(0,0,0,0.5)' }}>
-                        <span style={{ color:'white',fontSize:9,fontWeight:800,lineHeight:1 }}>{gcqty}</span>
-                      </div>
-                    )}
-
-                    {/* + button — bottom-right INSIDE image, never overflows card */}
-                    <button disabled={soldOutG} className="btn-press"
-                      onClick={e=>{ e.stopPropagation(); handleAddClick(p); }}
-                      style={{ position:'absolute',bottom:6,right:6,
-                        width:28,height:28,borderRadius:'50%',zIndex:5,
-                        background:soldOutG?'rgba(0,0,0,0.5)':gcqty>0?'#F59E0B':'rgba(13,0,26,0.82)',
-                        border:`2px solid ${soldOutG?'rgba(255,255,255,0.15)':gcqty>0?'#D97706':'rgba(245,158,11,0.9)'}`,
-                        boxShadow:soldOutG?'none':gcqty>0?'0 0 10px rgba(245,158,11,0.7)':'0 2px 8px rgba(0,0,0,0.6)',
-                        backdropFilter:'blur(4px)',
-                        cursor:soldOutG?'not-allowed':'pointer',opacity:soldOutG?0.3:1,
-                        display:'flex',alignItems:'center',justifyContent:'center',
-                        padding:0,transition:'all 0.15s',flexShrink:0 }}>
-                      <Plus size={15} color={gcqty>0&&!soldOutG?'#000':'#F59E0B'} strokeWidth={3} />
-                    </button>
-                  </div>
-
-                  {/* Card info — always visible below image */}
-                  <div style={{ padding:'6px 7px 8px',display:'flex',flexDirection:'column',gap:3,
-                    background:'rgba(0,0,0,0.25)',flexShrink:0 }}>
-                    <p style={{ color:'rgba(255,255,255,0.95)',fontSize:11,fontWeight:700,margin:0,
-                      overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',lineHeight:1.4 }}>
+                  {/* Gradient overlay — name + price always readable */}
+                  <div style={{ position:'absolute',bottom:0,left:0,right:0,
+                    background:'linear-gradient(to top,rgba(0,0,0,0.92) 0%,rgba(0,0,0,0.55) 55%,transparent 100%)',
+                    padding:'22px 7px 34px',pointerEvents:'none' }}>
+                    <p style={{ color:'white',fontSize:11,fontWeight:700,margin:'0 0 2px',
+                      overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',lineHeight:1.3,
+                      textShadow:'0 1px 4px rgba(0,0,0,0.8)' }}>
                       {p.title}
                     </p>
                     <p style={{ color:'#F59E0B',fontSize:12,fontWeight:900,margin:0,
-                      overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',lineHeight:1.3 }}>
-                      {range2 ? `${fmt(range2.min)} – ${fmt(range2.max)}` : fmt(p.price_kobo)}
+                      overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',
+                      textShadow:'0 1px 4px rgba(0,0,0,0.6)' }}>
+                      {range2 ? `${fmt(range2.min)}–${fmt(range2.max)}` : fmt(p.price_kobo)}
                     </p>
                   </div>
+
+                  {/* Sold out overlay */}
+                  {soldOutG && (
+                    <div style={{ position:'absolute',inset:0,background:'rgba(0,0,0,0.55)',
+                      display:'flex',alignItems:'center',justifyContent:'center' }}>
+                      <span style={{ color:'#F87171',fontSize:9,fontWeight:700,letterSpacing:.5,
+                        background:'rgba(0,0,0,0.6)',padding:'2px 7px',borderRadius:6 }}>SOLD OUT</span>
+                    </div>
+                  )}
+
+                  {/* Cart qty badge — top-left */}
+                  {gcqty>0 && (
+                    <div style={{ position:'absolute',top:5,left:5,minWidth:20,height:20,
+                      borderRadius:10,background:'#EF4444',display:'flex',alignItems:'center',
+                      justifyContent:'center',padding:'0 5px',zIndex:5,
+                      boxShadow:'0 2px 6px rgba(0,0,0,0.5)' }}>
+                      <span style={{ color:'white',fontSize:10,fontWeight:800,lineHeight:1 }}>{gcqty}</span>
+                    </div>
+                  )}
+
+                  {/* + button — bottom-right, stops click propagation to card */}
+                  <button disabled={soldOutG} className="btn-press"
+                    onClick={e=>{ e.stopPropagation(); handleAddClick(p); }}
+                    style={{ position:'absolute',bottom:7,right:7,
+                      width:30,height:30,borderRadius:'50%',zIndex:5,
+                      background:soldOutG?'rgba(0,0,0,0.45)':gcqty>0?'#F59E0B':'rgba(13,0,26,0.85)',
+                      border:`2px solid ${soldOutG?'rgba(255,255,255,0.1)':gcqty>0?'#D97706':'rgba(245,158,11,0.9)'}`,
+                      boxShadow:soldOutG?'none':gcqty>0?'0 0 12px rgba(245,158,11,0.7)':'0 2px 10px rgba(0,0,0,0.7)',
+                      backdropFilter:'blur(6px)',
+                      cursor:soldOutG?'not-allowed':'pointer',opacity:soldOutG?0.3:1,
+                      display:'flex',alignItems:'center',justifyContent:'center',
+                      padding:0,transition:'all 0.15s' }}>
+                    <Plus size={16} color={gcqty>0&&!soldOutG?'#000':'#F59E0B'} strokeWidth={3} />
+                  </button>
                 </div>
               );
             })}
@@ -703,7 +716,8 @@ export default function HomePage() {
                 </div>
               </div>
             )}
-          </div>
+            </div>{/* end inner grid */}
+          </div>{/* end scroll wrapper */}
         </div>
 
         {/* ── PRODUCT DETAIL OVERLAY (tapped from grid) ── */}
