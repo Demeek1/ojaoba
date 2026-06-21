@@ -6,7 +6,7 @@ import api from '@/lib/api';
 import {
   LayoutDashboard, ShoppingCart, Package, MessageSquare,
   BarChart3, Megaphone, Settings, LogOut, Menu, X, ChevronRight,
-  ShoppingBag, Bot,
+  ShoppingBag, Bot, Users,
 } from 'lucide-react';
 
 const navItems = [
@@ -18,6 +18,8 @@ const navItems = [
   { href: '/admin/analytics', label: 'Analytics', icon: BarChart3 },
   { href: '/admin/broadcast', label: 'Broadcast', icon: Megaphone },
   { href: '/admin/settings', label: 'Settings', icon: Settings },
+  // Super-admin only — filtered out for regular admins below.
+  { href: '/admin/team', label: 'Team', icon: Users, superAdmin: true },
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -25,16 +27,22 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const pathname = usePathname();
   const [ready, setReady] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [role, setRole] = useState<string>('admin');
 
   useEffect(() => {
     if (pathname === '/admin/login') { setReady(true); return; }
     const token = localStorage.getItem('ojaoba_admin_token');
     if (!token) { router.replace('/admin/login'); return; }
-    api.get('/admin/me').then(() => setReady(true)).catch(() => {
+    api.get('/admin/me').then((res) => {
+      setRole(res.data?.role || 'admin');
+      setReady(true);
+    }).catch(() => {
       localStorage.removeItem('ojaoba_admin_token');
       router.replace('/admin/login');
     });
   }, [pathname, router]);
+
+  const visibleNav = navItems.filter(item => !item.superAdmin || role === 'super_admin');
 
   const logout = () => {
     localStorage.removeItem('ojaoba_admin_token');
@@ -73,7 +81,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
       {/* Nav */}
       <nav className="flex-1 p-4 space-y-1">
-        {navItems.map(item => {
+        {visibleNav.map(item => {
           const Icon = item.icon;
           const active = isActive(item);
           return (
@@ -143,7 +151,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 <ShoppingBag className="w-3.5 h-3.5 text-white" />
               </div>
               <span className="font-black text-gray-900 text-sm">
-                {navItems.find(n => isActive(n))?.label || 'Ojaoba'}
+                {visibleNav.find(n => isActive(n))?.label || 'Ojaoba'}
               </span>
             </div>
           </div>

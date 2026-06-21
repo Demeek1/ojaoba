@@ -176,9 +176,12 @@ async function setupDatabase() {
         email         TEXT UNIQUE NOT NULL,
         password_hash TEXT NOT NULL,
         name          TEXT,
+        role          TEXT NOT NULL DEFAULT 'admin',
         created_at    TIMESTAMPTZ DEFAULT NOW()
       )
     `);
+    // Add the role column for databases created before roles existed
+    await db.query(`ALTER TABLE admins ADD COLUMN IF NOT EXISTS role TEXT NOT NULL DEFAULT 'admin'`);
 
     // Site settings (delivery fee, support contact, etc.)
     await db.query(`
@@ -228,17 +231,21 @@ async function setupDatabase() {
     `);
     await db.query(`CREATE INDEX IF NOT EXISTS idx_wa_messages_phone ON wa_messages(phone, created_at DESC)`);
 
-    // Seed default admin (from env)
+    // Seed the super admin (the store owner). The super admin is the only account
+    // allowed to add or remove other admins. Configure it with SUPER_ADMIN_EMAIL /
+    // SUPER_ADMIN_PASSWORD (falls back to the legacy ADMIN_EMAIL / ADMIN_PASSWORD).
     const bcrypt = require('bcryptjs');
-    const adminEmail = process.env.ADMIN_EMAIL || 'admin@ojaoba.com';
-    const adminPass  = process.env.ADMIN_PASSWORD || 'admin123';
-    const hash = await bcrypt.hash(adminPass, 10);
     const { v4: uuidv4 } = require('uuid');
+    const superEmail = (process.env.SUPER_ADMIN_EMAIL || process.env.ADMIN_EMAIL || 'admin@ojaoba.com').toLowerCase();
+    const superPass  = process.env.SUPER_ADMIN_PASSWORD || process.env.ADMIN_PASSWORD || 'admin123';
+    const hash = await bcrypt.hash(superPass, 10);
     await db.query(`
-      INSERT INTO admins (id, email, password_hash, name)
-      VALUES ($1, $2, $3, 'Admin')
-      ON CONFLICT (email) DO NOTHING
-    `, [uuidv4(), adminEmail, hash]);
+      INSERT INTO admins (id, email, password_hash, name, role)
+      VALUES ($1, $2, $3, 'Owner', 'super_admin')
+      ON CONFLICT (email) DO UPDATE SET role = 'super_admin'
+    `, [uuidv4(), superEmail, hash]);
+    // Guarantee exactly one super admin: demote any others that may exist.
+    await db.query(`UPDATE admins SET role = 'admin' WHERE role = 'super_admin' AND email <> $1`, [superEmail]);
 
     console.log('✅ Ojaoba database ready');
   } catch (e: any) {
