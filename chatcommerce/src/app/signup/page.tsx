@@ -30,10 +30,11 @@ export default function Signup() {
   }
 
   return (
-    <main className="mesh flex min-h-screen items-center justify-center px-6 py-10">
+    <main className="flex min-h-screen items-center justify-center bg-forest-900 px-6 py-10">
       <form onSubmit={submit} className="card w-full max-w-md shadow-soft">
-        <h1 className="text-2xl font-bold">Create your store</h1>
-        <p className="mt-1 text-sm text-slate-600">Start selling on chat in minutes.</p>
+        <Link href="/" className="font-display text-xl font-extrabold text-forest-900">chatcommerce</Link>
+        <h1 className="mt-5 font-display text-2xl font-extrabold text-forest-900">Create your store</h1>
+        <p className="mt-1 text-sm text-forest-900/60">Start selling on chat in minutes.</p>
         {error && <p className="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
         <div className="mt-5 space-y-4">
           <div>

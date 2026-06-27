@@ -7,33 +7,57 @@
 }
 
 body {
-  @apply bg-white text-ink-800 antialiased;
+  @apply bg-forest-900 font-sans text-forest-900 antialiased;
 }
 
+h1, h2, h3, .display {
+  @apply font-display;
+}
+
+/* ── Buttons ───────────────────────────────────────────── */
+/* Signature lime→yellow gradient pill, dark text */
 .btn {
-  @apply inline-flex items-center justify-center gap-2 rounded-full bg-brand-500 px-5 py-2.5 font-semibold text-white shadow-soft transition hover:bg-brand-600 disabled:opacity-50;
+  @apply inline-flex items-center justify-center gap-2 rounded-full px-6 py-3 font-display font-bold text-forest-900 transition hover:brightness-105 disabled:opacity-50;
+  background-image: linear-gradient(90deg, #7ed957 0%, #b6e23a 55%, #e9e21f 100%);
+}
+.btn-grass {
+  @apply inline-flex items-center justify-center gap-2 rounded-full bg-grass px-6 py-3 font-display font-bold text-white transition hover:brightness-105 disabled:opacity-50;
 }
 .btn-dark {
-  @apply inline-flex items-center justify-center gap-2 rounded-full bg-ink-900 px-5 py-2.5 font-semibold text-white transition hover:bg-ink-800 disabled:opacity-50;
+  @apply inline-flex items-center justify-center gap-2 rounded-full bg-forest-900 px-6 py-3 font-display font-bold text-white transition hover:bg-forest-800 disabled:opacity-50;
 }
 .btn-ghost {
-  @apply inline-flex items-center justify-center gap-2 rounded-full border border-ink-100 bg-white px-5 py-2.5 font-semibold text-ink-800 transition hover:bg-ink-50 disabled:opacity-50;
+  @apply inline-flex items-center justify-center gap-2 rounded-full border border-white/25 bg-transparent px-6 py-3 font-display font-bold text-white transition hover:bg-white/10 disabled:opacity-50;
 }
-.input {
-  @apply w-full rounded-xl border border-ink-100 bg-white px-3.5 py-2.5 outline-none transition focus:border-brand-400 focus:ring-4 focus:ring-brand-100;
-}
-.card {
-  @apply rounded-2xl border border-ink-100 bg-white p-5 shadow-sm;
-}
-.label {
-  @apply mb-1 block text-sm font-medium text-ink-700;
+.btn-ghost-dark {
+  @apply inline-flex items-center justify-center gap-2 rounded-full border border-forest-900/15 bg-white px-6 py-3 font-display font-bold text-forest-900 transition hover:bg-cream disabled:opacity-50;
 }
 
-/* Soft mesh background used behind hero/auth screens */
-.mesh {
-  background-color: #f6fbf8;
-  background-image:
-    radial-gradient(at 12% 18%, rgba(16, 185, 129, 0.18) 0px, transparent 50%),
-    radial-gradient(at 88% 12%, rgba(52, 211, 153, 0.16) 0px, transparent 45%),
-    radial-gradient(at 75% 85%, rgba(6, 95, 70, 0.10) 0px, transparent 50%);
+/* ── Forms ─────────────────────────────────────────────── */
+.input {
+  @apply w-full rounded-2xl border border-forest-900/10 bg-white px-4 py-3 text-forest-900 outline-none transition focus:border-brand-400 focus:ring-4 focus:ring-brand-100;
+}
+.label {
+  @apply mb-1.5 block text-sm font-medium text-forest-900/70;
+}
+
+/* ── Cards ─────────────────────────────────────────────── */
+.card {
+  @apply rounded-3xl border border-forest-900/5 bg-white p-6 shadow-card;
+}
+/* Light mint→white card used in feature carousels */
+.card-mint {
+  @apply rounded-4xl border border-forest-900/5 p-7 shadow-card;
+  background-image: linear-gradient(160deg, #eef7e0 0%, #ffffff 70%);
+}
+
+/* ── Gradients / surfaces ──────────────────────────────── */
+.grad-lime {
+  background-image: linear-gradient(135deg, #7ed957 0%, #a9e15a 40%, #cfe23c 100%);
+}
+.surface-dark {
+  @apply bg-forest-900 text-white;
+}
+.surface-light {
+  @apply bg-cream text-forest-900;
 }
