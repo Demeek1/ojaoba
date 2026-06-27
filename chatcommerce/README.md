@@ -18,8 +18,9 @@ from every other.
 - **Connect a channel** (`/dashboard/channels`): WhatsApp Cloud API, Telegram bot, or Instagram DM. Each gets its own secret webhook URL.
 - **Connect a store** (`/dashboard/stores`): one-click import of products from Shopify or WooCommerce — or add products manually.
 - **Customers order in chat**: the bot answers `menu`, `add 1`, `cart`, `checkout` and records the order.
+- **AI concierge** (optional): set `ANTHROPIC_API_KEY` and customers can chat naturally ("I'll take two of the tote") — Claude interprets intent while the deterministic engine keeps prices/totals authoritative. Falls back to keyword commands when no key is set.
 - **Platform console** at `/admin` (platform owner only): live counts and GMV across every vendor, suspend/activate vendors.
-- **Billing gate** (Stripe): vendors subscribe to go live.
+- **Billing gate**: vendors subscribe to go live — **Stripe** (global/USD) or **Paystack** (NGN/Africa), selected with `BILLING_PROVIDER`.
 
 ## Security & isolation (by design)
 

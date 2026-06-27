@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import Logo from './Logo';
 import {
   MessageCircle, Store, ShieldCheck, Zap, Plug, BarChart3, ArrowRight, Play, Menu, Check, BadgeCheck,
 } from 'lucide-react';
@@ -8,7 +9,7 @@ export default function Home() {
     <main className="min-h-screen bg-forest-900 text-white">
       {/* ── Nav ─────────────────────────────────────────── */}
       <header className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-5 py-5">
-        <div className="font-display text-2xl font-extrabold tracking-tight text-white">chatcommerce</div>
+        <Logo tone="dark" />
         <div className="hidden flex-1 sm:block">
           <div className="mx-auto h-11 max-w-md rounded-full bg-white" />
         </div>
@@ -147,8 +148,8 @@ export default function Home() {
       <footer className="bg-forest-700 px-5 py-14 text-white/70">
         <div className="mx-auto flex max-w-6xl flex-col items-start justify-between gap-6 sm:flex-row sm:items-center">
           <div>
-            <p className="font-display text-2xl font-extrabold text-white">chatcommerce</p>
-            <p className="mt-2 max-w-sm text-sm">Sell where your customers already are. Built for vendors everywhere.</p>
+            <Logo tone="dark" />
+            <p className="mt-3 max-w-sm text-sm">Sell where your customers already are. Built for vendors everywhere.</p>
           </div>
           <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm">
             <Link href="/pricing" className="hover:text-white">Pricing</Link>

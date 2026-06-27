@@ -1,6 +1,6 @@
 import { ownerQuery } from '@/lib/db';
 import { notFound } from 'next/navigation';
-import { MessageCircle } from 'lucide-react';
+import { MessageCircle, Package } from 'lucide-react';
 
 export const runtime = 'nodejs';
 export const revalidate = 60;
@@ -31,39 +31,54 @@ export default async function Storefront({ params }: { params: { slug: string } 
     )
   )[0];
 
+  const initial = (tenant.business_name?.[0] || 'S').toUpperCase();
+
   return (
-    <main className="min-h-screen bg-slate-50">
-      <header className="bg-brand-900 py-12 text-center text-white">
-        <h1 className="text-3xl font-extrabold">{tenant.business_name}</h1>
-        <p className="mt-2 text-brand-100">Browse below, then order on chat.</p>
+    <main className="min-h-screen bg-cream">
+      {/* Hero */}
+      <header className="bg-forest-900 px-5 pb-16 pt-14 text-center text-white">
+        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-brand-500 font-display text-2xl font-extrabold text-forest-900">
+          {initial}
+        </div>
+        <h1 className="mt-5 font-display text-4xl font-extrabold tracking-tight sm:text-5xl">{tenant.business_name}</h1>
+        <p className="mt-3 text-white/60">Browse below, then order on chat — it’s instant.</p>
         {channel?.type === 'whatsapp' && channel.external_id && (
           <a
             href={`https://wa.me/${channel.external_id}?text=menu`}
-            className="mt-5 inline-flex items-center gap-2 rounded-lg bg-green-500 px-5 py-2.5 font-semibold"
+            className="btn-grass mt-7 inline-flex"
           >
             <MessageCircle className="h-4 w-4" /> Order on WhatsApp
           </a>
         )}
       </header>
 
-      <section className="mx-auto grid max-w-5xl gap-5 px-6 py-10 sm:grid-cols-2 lg:grid-cols-3">
+      {/* Catalog */}
+      <section className="mx-auto -mt-8 grid max-w-5xl gap-5 px-5 pb-16 sm:grid-cols-2 lg:grid-cols-3">
         {products.map((p: any) => (
-          <div key={p.id} className="card">
-            {p.image_url && <img src={p.image_url} alt="" className="mb-3 h-44 w-full rounded-lg object-cover" />}
-            <h3 className="font-semibold">{p.title}</h3>
-            {p.description && <p className="mt-1 line-clamp-2 text-sm text-slate-500">{p.description}</p>}
-            <p className="mt-2 font-bold text-brand-700">
+          <div key={p.id} className="card overflow-hidden">
+            {p.image_url ? (
+              <img src={p.image_url} alt="" className="mb-4 h-48 w-full rounded-2xl object-cover" />
+            ) : (
+              <div className="mb-4 flex h-48 w-full items-center justify-center rounded-2xl bg-cream text-forest-900/20">
+                <Package className="h-10 w-10" />
+              </div>
+            )}
+            <h3 className="font-display font-bold text-forest-900">{p.title}</h3>
+            {p.description && <p className="mt-1 line-clamp-2 text-sm text-forest-900/50">{p.description}</p>}
+            <p className="mt-3 inline-block rounded-full bg-brand-50 px-3 py-1 font-display text-sm font-bold text-brand-700">
               {p.currency} {(Number(p.price_cents) / 100).toFixed(2)}
             </p>
           </div>
         ))}
         {products.length === 0 && (
-          <p className="col-span-full text-center text-slate-500">This store is being set up. Check back soon!</p>
+          <div className="card col-span-full py-14 text-center text-forest-900/50">
+            This store is being set up. Check back soon!
+          </div>
         )}
       </section>
 
-      <footer className="py-8 text-center text-sm text-slate-400">
-        Powered by ChatCommerce
+      <footer className="bg-forest-700 py-8 text-center text-sm text-white/50">
+        Powered by <span className="font-display font-bold text-white">chatcommerce</span>
       </footer>
     </main>
   );

@@ -54,8 +54,10 @@ Neon's SQL editor and run it.)
    | `PLATFORM_OWNER_EMAIL` | your email (becomes the super-admin) |
    | `NEXT_PUBLIC_APP_URL` | leave blank for now, fill after first deploy |
 
-   Optional (only if you want to charge vendors right away):
-   `STRIPE_SECRET_KEY`, `STRIPE_PRICE_ID`, `STRIPE_WEBHOOK_SECRET`, `BILLING_ENFORCED=true`.
+   Optional add-ons:
+   - **AI concierge:** `ANTHROPIC_API_KEY` — lets customers chat naturally instead of using keyword commands.
+   - **Billing (Stripe):** `BILLING_PROVIDER=stripe`, `STRIPE_SECRET_KEY`, `STRIPE_PRICE_ID`, `STRIPE_WEBHOOK_SECRET`, `BILLING_ENFORCED=true`. Webhook URL: `/api/billing/webhook`.
+   - **Billing (Paystack, NGN):** `BILLING_PROVIDER=paystack`, `PAYSTACK_SECRET_KEY`, `PAYSTACK_AMOUNT`, `PAYSTACK_CURRENCY=NGN`, optional `PAYSTACK_PLAN` for recurring. Webhook URL: `/api/billing/paystack/webhook`.
 
 5. Click **Deploy**. After it finishes you'll get a URL like
    `https://chatcommerce-xxxx.vercel.app`.
