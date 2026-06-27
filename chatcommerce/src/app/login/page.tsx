@@ -29,8 +29,8 @@ export default function Login() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center px-6">
-      <form onSubmit={submit} className="card w-full max-w-md">
+    <main className="mesh flex min-h-screen items-center justify-center px-6 py-10">
+      <form onSubmit={submit} className="card w-full max-w-md shadow-soft">
         <h1 className="text-2xl font-bold">Welcome back</h1>
         {error && <p className="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
         <div className="mt-5 space-y-4">

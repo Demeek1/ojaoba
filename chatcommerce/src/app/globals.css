@@ -7,21 +7,33 @@
 }
 
 body {
-  @apply bg-slate-50 text-slate-900 antialiased;
+  @apply bg-white text-ink-800 antialiased;
 }
 
 .btn {
-  @apply inline-flex items-center justify-center gap-2 rounded-lg bg-brand-600 px-4 py-2 font-medium text-white transition hover:bg-brand-700 disabled:opacity-50;
+  @apply inline-flex items-center justify-center gap-2 rounded-full bg-brand-500 px-5 py-2.5 font-semibold text-white shadow-soft transition hover:bg-brand-600 disabled:opacity-50;
+}
+.btn-dark {
+  @apply inline-flex items-center justify-center gap-2 rounded-full bg-ink-900 px-5 py-2.5 font-semibold text-white transition hover:bg-ink-800 disabled:opacity-50;
 }
 .btn-ghost {
-  @apply inline-flex items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 font-medium text-slate-700 transition hover:bg-slate-50;
+  @apply inline-flex items-center justify-center gap-2 rounded-full border border-ink-100 bg-white px-5 py-2.5 font-semibold text-ink-800 transition hover:bg-ink-50 disabled:opacity-50;
 }
 .input {
-  @apply w-full rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100;
+  @apply w-full rounded-xl border border-ink-100 bg-white px-3.5 py-2.5 outline-none transition focus:border-brand-400 focus:ring-4 focus:ring-brand-100;
 }
 .card {
-  @apply rounded-xl border border-slate-200 bg-white p-5 shadow-sm;
+  @apply rounded-2xl border border-ink-100 bg-white p-5 shadow-sm;
 }
 .label {
-  @apply mb-1 block text-sm font-medium text-slate-700;
+  @apply mb-1 block text-sm font-medium text-ink-700;
+}
+
+/* Soft mesh background used behind hero/auth screens */
+.mesh {
+  background-color: #f6fbf8;
+  background-image:
+    radial-gradient(at 12% 18%, rgba(16, 185, 129, 0.18) 0px, transparent 50%),
+    radial-gradient(at 88% 12%, rgba(52, 211, 153, 0.16) 0px, transparent 45%),
+    radial-gradient(at 75% 85%, rgba(6, 95, 70, 0.10) 0px, transparent 50%);
 }
