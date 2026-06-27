@@ -27,11 +27,11 @@ export default function Settings() {
 
   return (
     <div className="max-w-xl">
-      <h1 className="text-2xl font-bold">Settings</h1>
+      <h1 className="font-display text-3xl font-extrabold text-forest-900">Settings</h1>
 
-      <div className="card mt-5">
-        <h2 className="font-semibold">Store</h2>
-        <dl className="mt-3 space-y-2 text-sm">
+      <div className="card mt-6">
+        <h2 className="font-display text-lg font-extrabold text-forest-900">Store</h2>
+        <dl className="mt-3 space-y-2.5 text-sm">
           <Row k="Business name" v={me.tenant.business_name} />
           <Row k="Storefront handle" v={`/store/${me.tenant.slug}`} />
           <Row k="Plan" v={me.tenant.plan} />
@@ -41,8 +41,8 @@ export default function Settings() {
       </div>
 
       <div className="card mt-5">
-        <h2 className="font-semibold">Billing</h2>
-        <p className="mt-1 text-sm text-slate-600">
+        <h2 className="font-display text-lg font-extrabold text-forest-900">Billing</h2>
+        <p className="mt-1 text-sm text-forest-900/60">
           Upgrade to a paid plan to keep your store live beyond the trial.
         </p>
         <button className="btn mt-4" onClick={startBilling} disabled={busy}>
@@ -56,9 +56,9 @@ export default function Settings() {
 
 function Row({ k, v }: { k: string; v: string }) {
   return (
-    <div className="flex justify-between">
-      <dt className="text-slate-500">{k}</dt>
-      <dd className="font-medium capitalize">{v}</dd>
+    <div className="flex justify-between border-b border-forest-900/5 pb-2.5 last:border-0">
+      <dt className="text-forest-900/50">{k}</dt>
+      <dd className="font-semibold capitalize text-forest-900">{v}</dd>
     </div>
   );
 }

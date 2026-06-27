@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { api, money } from '@/lib/client';
+import { Package, MessageCircle, Receipt, TrendingUp, ArrowUpRight, ExternalLink } from 'lucide-react';
 
 export default function Overview() {
   const [me, setMe] = useState<any>(null);
@@ -27,45 +28,59 @@ export default function Overview() {
   }, []);
 
   if (error) return <p className="text-red-600">{error}</p>;
-  if (!me) return <p className="text-slate-500">Loading…</p>;
-
-  const liveUrl = `/store/${me.tenant.slug}`;
+  if (!me) return <p className="text-forest-900/50">Loading…</p>;
 
   return (
     <div>
-      <h1 className="text-2xl font-bold">Welcome, {me.tenant.business_name}</h1>
-      <p className="mt-1 text-sm text-slate-600">
-        Plan: <span className="font-medium capitalize">{me.tenant.plan}</span> · Status:{' '}
-        <span className="font-medium capitalize">{me.tenant.status}</span> ·{' '}
-        <Link href={liveUrl} className="text-brand-600" target="_blank">
-          View your storefront →
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="font-display text-3xl font-extrabold text-forest-900">Welcome, {me.tenant.business_name}</h1>
+          <p className="mt-1 text-sm text-forest-900/60">
+            Plan <span className="font-semibold capitalize text-forest-900">{me.tenant.plan}</span> ·{' '}
+            Status <span className="font-semibold capitalize text-forest-900">{me.tenant.status}</span>
+          </p>
+        </div>
+        <Link
+          href={`/store/${me.tenant.slug}`}
+          target="_blank"
+          className="btn-ghost-dark text-sm"
+        >
+          View storefront <ExternalLink className="h-4 w-4" />
         </Link>
-      </p>
-
-      <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Stat label="Products" value={counts.products} href="/dashboard/products" />
-        <Stat label="Channels" value={counts.channels} href="/dashboard/channels" />
-        <Stat label="Orders" value={counts.orders} href="/dashboard/orders" />
-        <Stat label="Revenue" value={money(counts.gmv)} href="/dashboard/orders" />
       </div>
 
-      <div className="card mt-6">
-        <h2 className="font-semibold">Get set up in 3 steps</h2>
-        <ol className="mt-3 space-y-2 text-sm text-slate-600">
-          <li>1. <Link className="text-brand-600" href="/dashboard/stores">Connect your store</Link> (Shopify / WooCommerce) and import products — or add them manually.</li>
-          <li>2. <Link className="text-brand-600" href="/dashboard/channels">Connect a channel</Link> (WhatsApp, Telegram or Instagram) and copy your webhook URL.</li>
-          <li>3. Message your bot “menu” and place a test order. 🎉</li>
+      <div className="mt-7 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <Stat label="Products" value={counts.products} icon={<Package />} href="/dashboard/products" />
+        <Stat label="Channels" value={counts.channels} icon={<MessageCircle />} href="/dashboard/channels" />
+        <Stat label="Orders" value={counts.orders} icon={<Receipt />} href="/dashboard/orders" />
+        <Stat label="Revenue" value={money(counts.gmv)} icon={<TrendingUp />} href="/dashboard/orders" highlight />
+      </div>
+
+      <div className="mt-6 rounded-3xl border border-forest-900/5 bg-forest-900 p-7 text-white shadow-card">
+        <h2 className="font-display text-xl font-extrabold">Get set up in 3 steps</h2>
+        <ol className="mt-4 space-y-3 text-sm text-white/75">
+          <li className="flex gap-3"><Num n="1" /> <span><Link className="font-semibold text-brand-400" href="/dashboard/stores">Connect your store</Link> (Shopify / WooCommerce) and import products — or add them manually.</span></li>
+          <li className="flex gap-3"><Num n="2" /> <span><Link className="font-semibold text-brand-400" href="/dashboard/channels">Connect a channel</Link> (WhatsApp, Telegram or Instagram) and copy your webhook URL.</span></li>
+          <li className="flex gap-3"><Num n="3" /> <span>Message your bot “menu” and place a test order. 🎉</span></li>
         </ol>
       </div>
     </div>
   );
 }
 
-function Stat({ label, value, href }: { label: string; value: any; href: string }) {
+function Num({ n }: { n: string }) {
+  return <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand-500 font-display text-xs font-bold text-forest-900">{n}</span>;
+}
+
+function Stat({ label, value, icon, href, highlight }: { label: string; value: any; icon: React.ReactNode; href: string; highlight?: boolean }) {
   return (
-    <Link href={href} className="card transition hover:shadow-md">
-      <p className="text-sm text-slate-500">{label}</p>
-      <p className="mt-1 text-2xl font-bold">{value}</p>
+    <Link href={href} className={`group relative overflow-hidden rounded-3xl border p-5 shadow-card transition hover:-translate-y-0.5 ${highlight ? 'grad-lime border-transparent text-forest-900' : 'border-forest-900/5 bg-white text-forest-900'}`}>
+      <div className="flex items-center justify-between">
+        <span className={`flex h-10 w-10 items-center justify-center rounded-2xl ${highlight ? 'bg-forest-900/10' : 'bg-brand-50 text-brand-600'}`}>{icon}</span>
+        <ArrowUpRight className="h-4 w-4 opacity-30 transition group-hover:opacity-70" />
+      </div>
+      <p className="mt-4 font-display text-3xl font-extrabold">{value}</p>
+      <p className={`text-sm ${highlight ? 'text-forest-900/60' : 'text-forest-900/50'}`}>{label}</p>
     </Link>
   );
 }

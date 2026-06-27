@@ -61,8 +61,8 @@ export default function Stores() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold">Stores</h1>
-      <p className="mt-1 text-sm text-slate-600">Connect Shopify or WooCommerce and import your catalog.</p>
+      <h1 className="font-display text-3xl font-extrabold text-forest-900">Stores</h1>
+      <p className="mt-1 text-sm text-forest-900/60">Connect Shopify or WooCommerce and import your catalog.</p>
 
       <form onSubmit={connect} className="card mt-5 max-w-xl space-y-4">
         <div>
@@ -88,19 +88,19 @@ export default function Stores() {
         <button className="btn" disabled={busy}>{busy ? 'Connecting…' : 'Connect store'}</button>
       </form>
       {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
-      {msg && <p className="mt-3 text-sm text-green-700">{msg}</p>}
+      {msg && <p className="mt-3 text-sm font-medium text-brand-700">{msg}</p>}
 
       <div className="mt-6 space-y-3">
         {stores.map((s) => (
-          <div key={s.id} className="card flex items-center justify-between">
-            <div>
-              <p className="font-semibold capitalize">{s.provider} {s.domain && `· ${s.domain}`}</p>
-              <p className="text-xs text-slate-500">
+          <div key={s.id} className="card flex items-center justify-between gap-4">
+            <div className="min-w-0">
+              <p className="font-display font-bold capitalize text-forest-900">{s.provider} {s.domain && <span className="font-sans font-normal text-forest-900/50">· {s.domain}</span>}</p>
+              <p className="text-xs text-forest-900/40">
                 {s.last_synced_at ? `Last synced ${new Date(s.last_synced_at).toLocaleString()}` : 'Never synced'}
               </p>
             </div>
             {s.provider !== 'manual' && (
-              <button className="btn-ghost text-sm" onClick={() => importNow(s.id)}>Import products</button>
+              <button className="btn-ghost-dark shrink-0 px-4 py-2 text-sm" onClick={() => importNow(s.id)}>Import products</button>
             )}
           </div>
         ))}

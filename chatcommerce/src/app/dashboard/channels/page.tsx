@@ -56,8 +56,8 @@ export default function Channels() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold">Channels</h1>
-      <p className="mt-1 text-sm text-slate-600">
+      <h1 className="font-display text-3xl font-extrabold text-forest-900">Channels</h1>
+      <p className="mt-1 text-sm text-forest-900/60">
         Connect a chat channel. Your secrets are encrypted at rest and never shown again.
       </p>
 
@@ -85,10 +85,10 @@ export default function Channels() {
       {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
 
       {newUrl && (
-        <div className="card mt-4 max-w-xl border-brand-200 bg-brand-50">
-          <p className="text-sm font-medium text-brand-800">Channel connected! Set this as your webhook URL:</p>
-          <code className="mt-2 block break-all rounded bg-white p-2 text-xs">{newUrl}</code>
-          <p className="mt-2 text-xs text-brand-700">
+        <div className="mt-4 max-w-xl rounded-3xl border border-brand-200 bg-brand-50 p-6">
+          <p className="font-display text-sm font-bold text-forest-900">Channel connected! Set this as your webhook URL:</p>
+          <code className="mt-2 block break-all rounded-xl bg-white p-3 text-xs text-forest-900">{newUrl}</code>
+          <p className="mt-2 text-xs text-forest-900/60">
             For WhatsApp/Instagram, paste this into Meta’s webhook config. For Telegram, call
             setWebhook with this URL.
           </p>
@@ -97,12 +97,12 @@ export default function Channels() {
 
       <div className="mt-6 space-y-3">
         {channels.map((c) => (
-          <div key={c.id} className="card flex items-center justify-between">
-            <div>
-              <p className="font-semibold capitalize">{c.type} {c.display_name && `· ${c.display_name}`}</p>
-              <code className="text-xs text-slate-500 break-all">{c.webhookUrl}</code>
+          <div key={c.id} className="card flex items-center justify-between gap-4">
+            <div className="min-w-0">
+              <p className="font-display font-bold capitalize text-forest-900">{c.type} {c.display_name && <span className="font-sans font-normal text-forest-900/50">· {c.display_name}</span>}</p>
+              <code className="block truncate text-xs text-forest-900/40">{c.webhookUrl}</code>
             </div>
-            <span className={`rounded-full px-2 py-1 text-xs ${c.status === 'connected' ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-600'}`}>
+            <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-semibold capitalize ${c.status === 'connected' ? 'bg-brand-100 text-brand-700' : 'bg-forest-900/5 text-forest-900/50'}`}>
               {c.status}
             </span>
           </div>

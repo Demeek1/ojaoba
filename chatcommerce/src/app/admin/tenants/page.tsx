@@ -22,52 +22,52 @@ export default function Tenants() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold">Vendors</h1>
-      <p className="mt-1 text-sm text-slate-600">
+      <h1 className="font-display text-3xl font-extrabold text-forest-900">Vendors</h1>
+      <p className="mt-1 text-sm text-forest-900/60">
         Every vendor is fully isolated — this console is the only place their data is visible together,
         and only to you.
       </p>
       {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
 
-      <div className="card mt-5 overflow-x-auto">
+      <div className="card mt-6 overflow-x-auto p-0">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-slate-200 text-left text-slate-500">
-              <th className="py-2 pr-4">Business</th>
-              <th className="py-2 pr-4">Handle</th>
-              <th className="py-2 pr-4">Plan</th>
-              <th className="py-2 pr-4">Billing</th>
-              <th className="py-2 pr-4">Products</th>
-              <th className="py-2 pr-4">Channels</th>
-              <th className="py-2 pr-4">Orders</th>
-              <th className="py-2 pr-4">Status</th>
-              <th className="py-2">Action</th>
+            <tr className="border-b border-forest-900/5 text-left text-xs uppercase tracking-wide text-forest-900/40">
+              <th className="px-5 py-3 font-semibold">Business</th>
+              <th className="px-5 py-3 font-semibold">Handle</th>
+              <th className="px-5 py-3 font-semibold">Plan</th>
+              <th className="px-5 py-3 font-semibold">Billing</th>
+              <th className="px-5 py-3 font-semibold">Products</th>
+              <th className="px-5 py-3 font-semibold">Channels</th>
+              <th className="px-5 py-3 font-semibold">Orders</th>
+              <th className="px-5 py-3 font-semibold">Status</th>
+              <th className="px-5 py-3 font-semibold">Action</th>
             </tr>
           </thead>
           <tbody>
             {tenants.map((t) => (
-              <tr key={t.id} className="border-b border-slate-100">
-                <td className="py-2 pr-4 font-medium">{t.business_name}</td>
-                <td className="py-2 pr-4 text-slate-500">/{t.slug}</td>
-                <td className="py-2 pr-4 capitalize">{t.plan}</td>
-                <td className="py-2 pr-4 capitalize">{t.billing_status}</td>
-                <td className="py-2 pr-4">{t.products}</td>
-                <td className="py-2 pr-4">{t.channels}</td>
-                <td className="py-2 pr-4">{t.orders}</td>
-                <td className="py-2 pr-4">
-                  <span className={`rounded-full px-2 py-0.5 text-xs ${t.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+              <tr key={t.id} className="border-b border-forest-900/5 last:border-0 hover:bg-cream/60">
+                <td className="px-5 py-3.5 font-display font-bold text-forest-900">{t.business_name}</td>
+                <td className="px-5 py-3.5 text-forest-900/50">/{t.slug}</td>
+                <td className="px-5 py-3.5 capitalize text-forest-900">{t.plan}</td>
+                <td className="px-5 py-3.5 capitalize text-forest-900/70">{t.billing_status}</td>
+                <td className="px-5 py-3.5 text-forest-900">{t.products}</td>
+                <td className="px-5 py-3.5 text-forest-900">{t.channels}</td>
+                <td className="px-5 py-3.5 text-forest-900">{t.orders}</td>
+                <td className="px-5 py-3.5">
+                  <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${t.status === 'active' ? 'bg-brand-100 text-brand-700' : 'bg-red-100 text-red-700'}`}>
                     {t.status}
                   </span>
                 </td>
-                <td className="py-2">
-                  <button className="btn-ghost text-xs" onClick={() => toggle(t)}>
+                <td className="px-5 py-3.5">
+                  <button className="btn-ghost-dark px-3.5 py-1.5 text-xs" onClick={() => toggle(t)}>
                     {t.status === 'active' ? 'Suspend' : 'Activate'}
                   </button>
                 </td>
               </tr>
             ))}
             {tenants.length === 0 && (
-              <tr><td colSpan={9} className="py-4 text-center text-slate-500">No vendors yet.</td></tr>
+              <tr><td colSpan={9} className="px-5 py-10 text-center text-forest-900/50">No vendors yet.</td></tr>
             )}
           </tbody>
         </table>
