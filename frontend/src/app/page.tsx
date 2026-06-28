@@ -6,6 +6,8 @@ import { useQuery } from '@tanstack/react-query';
 import { ShoppingCart, Plus, Minus, Heart, User, X, ChevronDown, ChevronUp, ChevronLeft, LayoutGrid } from 'lucide-react';
 import api, { fmt } from '@/lib/api';
 import { loadCart, saveCart, CartItem } from '@/lib/cart';
+import AiAssistant from '@/components/AiAssistant';
+import { track } from '@/lib/track';
 
 const WA = process.env.NEXT_PUBLIC_WA_NUMBER || '2348000000000';
 
@@ -102,7 +104,15 @@ export default function HomePage() {
   const [expandedDesc, setExpandedDesc]   = useState<Set<string>>(new Set());
   const [doubleTapFlash, setDoubleTapFlash] = useState<string>(''); // product id
 
-  useEffect(() => { setCartState(loadCart()); }, []);
+  useEffect(() => {
+    setCartState(loadCart());
+    track('page_view', { path: '/' });
+    // Keep the cart badge in sync when the AI assistant (or another tab) edits the cart
+    const sync = () => setCartState(loadCart());
+    window.addEventListener('oja-cart-changed', sync);
+    window.addEventListener('storage', sync);
+    return () => { window.removeEventListener('oja-cart-changed', sync); window.removeEventListener('storage', sync); };
+  }, []);
   function setCart(fn: (p: CartItem[]) => CartItem[]) {
     setCartState(prev => { const n = fn(prev); saveCart(n); return n; });
   }
@@ -255,6 +265,7 @@ export default function HomePage() {
       if (ex) return prev.map(c=>c.id===id?{...c,qty:c.qty+1}:c);
       return [...prev,{id,qty:1,title,price_kobo:price,image_url:p.image_url,note:''}];
     });
+    track('add_to_cart', { productId: p.id, valueKobo: price, metadata: { via: 'feed', title } });
   }
 
   function handleAddClick(p: Product) {
@@ -305,6 +316,9 @@ export default function HomePage() {
   return (
     <div style={{ height:'100dvh', background:'#2D0A4E', display:'flex', justifyContent:'center', overflow:'hidden' }}>
       <div style={{ position:'relative', width:'100%', maxWidth:430, height:'100dvh', overflow:'hidden', background:'#2D0A4E' }}>
+
+        {/* ── AI SHOPPING ASSISTANT ── */}
+        <AiAssistant />
 
         {/* ── HEADER ── */}
         <div style={{ position:'absolute',top:0,left:0,right:0,zIndex:50,height:HEADER_H,

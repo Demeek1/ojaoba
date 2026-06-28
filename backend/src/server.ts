@@ -10,6 +10,8 @@ import db from './db';
 import whatsappRoutes from './routes/whatsapp.routes';
 import adminRoutes    from './routes/admin.routes';
 import productRoutes  from './routes/product.routes';
+import assistantRoutes from './routes/assistant.routes';
+import trackRoutes    from './routes/track.routes';
 
 dotenv.config();
 
@@ -43,6 +45,8 @@ app.get('/health', (_req, res) =>
 app.use('/api/whatsapp', whatsappRoutes);
 app.use('/api/admin',    adminRoutes);
 app.use('/api/products', productRoutes);
+app.use('/api/ai',       assistantRoutes);
+app.use('/api/track',    trackRoutes);
 
 // ── Shopify OAuth (one-time setup) ────────────────────────────────────────────
 app.get('/api/shopify/install', (_req, res) => {
@@ -169,7 +173,7 @@ async function setupDatabase() {
     await db.query(`CREATE INDEX IF NOT EXISTS idx_analytics_event   ON analytics(event)`);
     await db.query(`CREATE INDEX IF NOT EXISTS idx_analytics_created ON analytics(created_at)`);
 
-    // Admin users
+    // Admin users (with role-based access control)
     await db.query(`
       CREATE TABLE IF NOT EXISTS admins (
         id            TEXT PRIMARY KEY,
@@ -179,6 +183,61 @@ async function setupDatabase() {
         created_at    TIMESTAMPTZ DEFAULT NOW()
       )
     `);
+    // RBAC columns — added idempotently so existing installs upgrade cleanly
+    await db.query(`ALTER TABLE admins ADD COLUMN IF NOT EXISTS role TEXT NOT NULL DEFAULT 'staff'`);
+    await db.query(`ALTER TABLE admins ADD COLUMN IF NOT EXISTS permissions TEXT[] NOT NULL DEFAULT '{}'`);
+    await db.query(`ALTER TABLE admins ADD COLUMN IF NOT EXISTS active BOOLEAN NOT NULL DEFAULT TRUE`);
+    await db.query(`ALTER TABLE admins ADD COLUMN IF NOT EXISTS last_login TIMESTAMPTZ`);
+    await db.query(`ALTER TABLE admins ADD COLUMN IF NOT EXISTS created_by TEXT`);
+
+    // Audit log — tamper-evident record of every privileged admin action
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS audit_log (
+        id          TEXT PRIMARY KEY,
+        actor_id    TEXT,
+        actor_email TEXT,
+        action      TEXT NOT NULL,
+        target_type TEXT,
+        target_id   TEXT,
+        metadata    JSONB DEFAULT '{}',
+        ip          TEXT,
+        created_at  TIMESTAMPTZ DEFAULT NOW()
+      )
+    `);
+    await db.query(`CREATE INDEX IF NOT EXISTS idx_audit_created ON audit_log(created_at DESC)`);
+    await db.query(`CREATE INDEX IF NOT EXISTS idx_audit_actor   ON audit_log(actor_id)`);
+
+    // Website customer-behaviour events (anonymous, session-keyed)
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS web_events (
+        id          TEXT PRIMARY KEY,
+        session_id  TEXT NOT NULL,
+        event       TEXT NOT NULL,
+        product_id  TEXT,
+        path        TEXT,
+        query       TEXT,
+        value_kobo  BIGINT,
+        metadata    JSONB DEFAULT '{}',
+        created_at  TIMESTAMPTZ DEFAULT NOW()
+      )
+    `);
+    await db.query(`CREATE INDEX IF NOT EXISTS idx_web_events_event   ON web_events(event)`);
+    await db.query(`CREATE INDEX IF NOT EXISTS idx_web_events_session ON web_events(session_id)`);
+    await db.query(`CREATE INDEX IF NOT EXISTS idx_web_events_created ON web_events(created_at DESC)`);
+    await db.query(`CREATE INDEX IF NOT EXISTS idx_web_events_product ON web_events(product_id)`);
+
+    // AI assistant conversation log (website) — for behaviour insight & quality review
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS ai_conversations (
+        id          TEXT PRIMARY KEY,
+        session_id  TEXT NOT NULL,
+        role        TEXT NOT NULL,
+        content     TEXT NOT NULL,
+        metadata    JSONB DEFAULT '{}',
+        created_at  TIMESTAMPTZ DEFAULT NOW()
+      )
+    `);
+    await db.query(`CREATE INDEX IF NOT EXISTS idx_ai_conv_session ON ai_conversations(session_id, created_at)`);
 
     // Site settings (delivery fee, support contact, etc.)
     await db.query(`
@@ -235,10 +294,12 @@ async function setupDatabase() {
     const hash = await bcrypt.hash(adminPass, 10);
     const { v4: uuidv4 } = require('uuid');
     await db.query(`
-      INSERT INTO admins (id, email, password_hash, name)
-      VALUES ($1, $2, $3, 'Admin')
+      INSERT INTO admins (id, email, password_hash, name, role, active)
+      VALUES ($1, $2, $3, 'Owner', 'owner', TRUE)
       ON CONFLICT (email) DO NOTHING
     `, [uuidv4(), adminEmail, hash]);
+    // Ensure the seeded super-admin always remains an active owner
+    await db.query(`UPDATE admins SET role='owner', active=TRUE WHERE email=$1`, [adminEmail]);
 
     console.log('✅ Ojaoba database ready');
   } catch (e: any) {
