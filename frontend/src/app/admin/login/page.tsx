@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import api from '@/lib/api';
 import toast from 'react-hot-toast';
-import { Eye, EyeOff, LogIn, ShoppingBag } from 'lucide-react';
+import { Eye, EyeOff, LogIn, Crown, ShieldCheck } from 'lucide-react';
 
 export default function AdminLoginPage() {
   const router = useRouter();
@@ -18,6 +18,7 @@ export default function AdminLoginPage() {
     try {
       const res = await api.post('/admin/login', { email, password });
       localStorage.setItem('ojaoba_admin_token', res.data.token);
+      localStorage.setItem('ojaoba_admin', JSON.stringify(res.data.admin || {}));
       toast.success('Welcome back!');
       router.push('/admin');
     } catch (err: any) {
@@ -28,35 +29,36 @@ export default function AdminLoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-orange-50 flex items-center justify-center px-4">
+    <div className="min-h-screen flex items-center justify-center px-4" style={{ background: 'radial-gradient(120% 120% at 50% 0%, #3D1466 0%, #2D0A4E 45%, #1E0735 100%)' }}>
       <div className="w-full max-w-md">
         {/* Logo */}
-        <div className="text-center mb-10">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-emerald-600 rounded-2xl shadow-xl shadow-emerald-200 mb-4">
-            <ShoppingBag className="w-8 h-8 text-white" />
+        <div className="text-center mb-9">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl mb-4" style={{ background: 'linear-gradient(135deg,#F59E0B,#D97706)', boxShadow: '0 12px 32px rgba(245,158,11,0.45)' }}>
+            <Crown className="w-8 h-8" style={{ color: '#2D0A4E' }} fill="#2D0A4E" />
           </div>
-          <h1 className="text-3xl font-black text-gray-900">Ojaoba Admin</h1>
-          <p className="text-gray-500 mt-1">Sign in to manage your store</p>
+          <h1 className="text-3xl font-black text-white">Ojaoba Admin</h1>
+          <p className="mt-1" style={{ color: 'rgba(255,255,255,0.6)' }}>Royal market control center</p>
         </div>
 
         {/* Card */}
-        <div className="bg-white rounded-3xl shadow-xl shadow-gray-100 p-8 border border-gray-100">
+        <div className="rounded-3xl p-8" style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(245,158,11,0.2)', backdropFilter: 'blur(12px)', boxShadow: '0 24px 60px rgba(0,0,0,0.4)' }}>
           <form onSubmit={handleLogin} className="space-y-5">
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Email address</label>
+              <label className="block text-sm font-semibold mb-2" style={{ color: 'rgba(255,255,255,0.8)' }}>Email address</label>
               <input
                 type="email"
                 value={email}
                 onChange={e => setEmail(e.target.value)}
                 required
                 autoComplete="email"
-                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-sm"
+                className="w-full px-4 py-3 rounded-xl text-sm text-white focus:outline-none"
+                style={{ background: 'rgba(0,0,0,0.25)', border: '1px solid rgba(255,255,255,0.15)' }}
                 placeholder="admin@ojaoba.com"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Password</label>
+              <label className="block text-sm font-semibold mb-2" style={{ color: 'rgba(255,255,255,0.8)' }}>Password</label>
               <div className="relative">
                 <input
                   type={showPw ? 'text' : 'password'}
@@ -64,10 +66,11 @@ export default function AdminLoginPage() {
                   onChange={e => setPassword(e.target.value)}
                   required
                   autoComplete="current-password"
-                  className="w-full px-4 py-3 pr-12 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-sm"
+                  className="w-full px-4 py-3 pr-12 rounded-xl text-sm text-white focus:outline-none"
+                  style={{ background: 'rgba(0,0,0,0.25)', border: '1px solid rgba(255,255,255,0.15)' }}
                   placeholder="••••••••"
                 />
-                <button type="button" onClick={() => setShowPw(!showPw)} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                <button type="button" onClick={() => setShowPw(!showPw)} className="absolute right-4 top-1/2 -translate-y-1/2" style={{ color: 'rgba(255,255,255,0.5)' }}>
                   {showPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
@@ -76,10 +79,11 @@ export default function AdminLoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-300 text-white font-bold py-3.5 rounded-xl transition-colors flex items-center justify-center gap-2 text-base mt-2"
+              className="w-full font-bold py-3.5 rounded-xl transition-opacity flex items-center justify-center gap-2 text-base mt-2 disabled:opacity-60"
+              style={{ background: 'linear-gradient(135deg,#F59E0B,#D97706)', color: '#2D0A4E' }}
             >
               {loading ? (
-                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                <div className="w-5 h-5 border-2 rounded-full animate-spin" style={{ borderColor: 'rgba(45,10,78,0.3)', borderTopColor: '#2D0A4E' }} />
               ) : (
                 <>
                   <LogIn className="w-5 h-5" />
@@ -90,8 +94,8 @@ export default function AdminLoginPage() {
           </form>
         </div>
 
-        <p className="text-center text-xs text-gray-400 mt-6">
-          Ojaoba Admin Panel &bull; Secure access only
+        <p className="text-center text-xs mt-6 flex items-center justify-center gap-1.5" style={{ color: 'rgba(255,255,255,0.4)' }}>
+          <ShieldCheck className="w-3.5 h-3.5" /> Secure, role-based access &bull; All actions are logged
         </p>
       </div>
     </div>

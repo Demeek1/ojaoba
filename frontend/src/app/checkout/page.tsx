@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { loadCart, clearCart, CartItem } from '@/lib/cart';
 import { fmt } from '@/lib/api';
+import { track } from '@/lib/track';
 
 const PAYSTACK_KEY = process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY || '';
 const API_URL      = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
@@ -104,6 +105,7 @@ export default function CheckoutPage() {
     const c = loadCart();
     setCart(c);
     if (c.length === 0) router.push('/');
+    else track('checkout_start', { valueKobo: c.reduce((s, i) => s + i.price_kobo * i.qty, 0), metadata: { items: c.length } });
 
     const saved = loadSaved();
     if (saved.name) {
@@ -226,6 +228,7 @@ export default function CheckoutPage() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ ref: psRef }),
           }).catch(() => {});
+          track('purchase', { valueKobo: subtotal, metadata: { items: cart.length, ref: psRef } });
           clearCart();
           setSuccess(true);
           setLoading(false);
