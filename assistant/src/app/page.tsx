@@ -3,7 +3,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Crown, Send, Plus, Check, ShoppingCart, Sparkles, MessageSquarePlus,
-  Menu, X, Trash2, Store, ChevronLeft,
+  Menu, X, Trash2, Store,
 } from 'lucide-react';
 import api, { fmt } from '@/lib/api';
 import { loadCart, saveCart, CartItem } from '@/lib/cart';
@@ -17,21 +17,20 @@ const GOLD = '#F59E0B';
 const GOLD_DK = '#D97706';
 const GREEN = '#22C55E';
 
+const STORE_URL = process.env.NEXT_PUBLIC_STORE_URL || '';
+
 /* ── Types & storage ── */
 interface Card { id: string; title: string; price_kobo: number; image_url: string | null; category: string; description?: string; }
 interface Msg { role: 'user' | 'assistant'; content: string; products?: Card[]; chips?: string[]; }
 interface Conversation { id: string; title: string; messages: Msg[]; updatedAt: number; }
 
-const STORE_KEY = 'oja_chats_v1';
-
+const STORE_KEY = 'oja_assistant_chats_v1';
 function loadChats(): Conversation[] {
   if (typeof window === 'undefined') return [];
   try { return JSON.parse(localStorage.getItem(STORE_KEY) || '[]'); } catch { return []; }
 }
-function saveChats(c: Conversation[]) {
-  try { localStorage.setItem(STORE_KEY, JSON.stringify(c.slice(0, 50))); } catch {}
-}
-function uid() { return (crypto?.randomUUID?.() || `c_${Date.now()}_${Math.random().toString(36).slice(2)}`); }
+function saveChats(c: Conversation[]) { try { localStorage.setItem(STORE_KEY, JSON.stringify(c.slice(0, 50))); } catch {} }
+function uid() { return crypto?.randomUUID?.() || `c_${Date.now()}_${Math.random().toString(36).slice(2)}`; }
 
 const SUGGESTIONS = [
   { emoji: '🍲', label: 'Plan a meal', prompt: 'Help me plan a Nigerian dinner for 4 people and add the ingredients to my cart' },
@@ -45,7 +44,7 @@ const WELCOME: Msg = {
   content: "Hi, I'm Adaeze 👑 — your personal Ojaoba assistant. Tell me what you'd like to cook or buy and I'll find it, answer any question, and build your cart for you. How can I help today?",
 };
 
-export default function ChatPage() {
+export default function AssistantPage() {
   const router = useRouter();
   const [chats, setChats] = useState<Conversation[]>([]);
   const [activeId, setActiveId] = useState<string>('');
@@ -61,42 +60,28 @@ export default function ChatPage() {
   const messages = active?.messages || [WELCOME];
   const isEmpty = !active || active.messages.length <= 1;
 
-  /* ── init ── */
+  const refreshCount = useCallback(() => { setCartCount(loadCart().reduce((s, c) => s + c.qty, 0)); }, []);
+
   useEffect(() => {
     getTrackSessionId();
     const existing = loadChats();
     setChats(existing);
     if (existing.length) setActiveId(existing[0].id);
     refreshCount();
-    track('page_view', { path: '/chat', metadata: { surface: 'assistant_site' } });
+    track('page_view', { path: '/' });
     const sync = () => refreshCount();
     window.addEventListener('oja-cart-changed', sync);
     window.addEventListener('storage', sync);
     return () => { window.removeEventListener('oja-cart-changed', sync); window.removeEventListener('storage', sync); };
-  }, []); // eslint-disable-line
-
-  const refreshCount = useCallback(() => {
-    setCartCount(loadCart().reduce((s, c) => s + c.qty, 0));
-  }, []);
+  }, [refreshCount]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
   }, [messages, loading]);
 
   function persist(next: Conversation[]) { setChats(next); saveChats(next); }
-
-  function newChat() {
-    setActiveId('');
-    setInput('');
-    setSidebarOpen(false);
-    setTimeout(() => inputRef.current?.focus(), 50);
-  }
-
-  function selectChat(id: string) {
-    setActiveId(id);
-    setSidebarOpen(false);
-  }
-
+  function newChat() { setActiveId(''); setInput(''); setSidebarOpen(false); setTimeout(() => inputRef.current?.focus(), 50); }
+  function selectChat(id: string) { setActiveId(id); setSidebarOpen(false); }
   function deleteChat(id: string, e: React.MouseEvent) {
     e.stopPropagation();
     const next = chats.filter((c) => c.id !== id);
@@ -107,17 +92,13 @@ export default function ChatPage() {
   async function send(text: string) {
     const clean = text.trim();
     if (!clean || loading) return;
-
-    // Checkout shortcut
     if (/^(checkout|pay|check out|go to checkout)/i.test(clean) && loadCart().length) {
-      track('checkout_start', { metadata: { via: 'assistant_site' } });
+      track('checkout_start', { metadata: { via: 'command' } });
       router.push('/checkout');
       return;
     }
-
     setInput('');
 
-    // Ensure we have a conversation
     let convo = active;
     let working = [...chats];
     if (!convo) {
@@ -125,9 +106,8 @@ export default function ChatPage() {
       working = [convo, ...chats];
       setActiveId(convo.id);
     }
-
     const userMsg: Msg = { role: 'user', content: clean };
-    const withUser = { ...convo, messages: [...convo.messages, userMsg], updatedAt: Date.now(),
+    const withUser: Conversation = { ...convo, messages: [...convo.messages, userMsg], updatedAt: Date.now(),
       title: convo.messages.length <= 1 ? clean.slice(0, 40) : convo.title };
     working = working.map((c) => (c.id === convo!.id ? withUser : c));
     persist(working);
@@ -156,11 +136,15 @@ export default function ChatPage() {
     window.dispatchEvent(new Event('oja-cart-changed'));
     refreshCount();
     setAdded((a) => ({ ...a, [p.id]: (a[p.id] || 0) + 1 }));
-    track('add_to_cart', { productId: p.id, valueKobo: p.price_kobo, metadata: { via: 'assistant_site', title: p.title } });
+    track('add_to_cart', { productId: p.id, valueKobo: p.price_kobo, metadata: { title: p.title } });
   }
 
   function onKeyDown(e: React.KeyboardEvent) {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(input); }
+  }
+
+  function goToStore() {
+    if (STORE_URL) window.open(STORE_URL, '_blank');
   }
 
   return (
@@ -182,17 +166,14 @@ export default function ChatPage() {
         </div>
 
         <div className="p-3">
-          <button onClick={newChat}
-            className="w-full flex items-center gap-2 px-3.5 py-2.5 rounded-xl font-bold text-sm"
+          <button onClick={newChat} className="w-full flex items-center gap-2 px-3.5 py-2.5 rounded-xl font-bold text-sm"
             style={{ background: `linear-gradient(135deg,${GOLD},${GOLD_DK})`, color: PURPLE_DEEP }}>
             <MessageSquarePlus size={17} /> New chat
           </button>
         </div>
 
         <div className="flex-1 overflow-y-auto px-2 pb-2 space-y-0.5">
-          {chats.length === 0 && (
-            <p className="text-xs text-white/30 px-3 py-4">Your conversations will appear here.</p>
-          )}
+          {chats.length === 0 && <p className="text-xs text-white/30 px-3 py-4">Your conversations will appear here.</p>}
           {chats.map((c) => (
             <button key={c.id} onClick={() => selectChat(c.id)}
               className="group w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-left transition-colors"
@@ -210,16 +191,17 @@ export default function ChatPage() {
 
         <div className="p-3 space-y-1.5" style={{ borderTop: '1px solid rgba(245,158,11,0.12)' }}>
           {cartCount > 0 && (
-            <button onClick={() => { track('checkout_start', { metadata: { via: 'assistant_site' } }); router.push('/checkout'); }}
+            <button onClick={() => { track('checkout_start', { metadata: { via: 'sidebar' } }); router.push('/checkout'); }}
               className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl font-bold text-sm"
               style={{ background: `linear-gradient(135deg,${GREEN},#16A34A)`, color: 'white' }}>
               <ShoppingCart size={16} /> Checkout · {cartCount}
             </button>
           )}
-          <button onClick={() => router.push('/')}
-            className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm text-white/55 hover:text-white transition-colors">
-            <Store size={16} /> Go to full store
-          </button>
+          {STORE_URL && (
+            <button onClick={goToStore} className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm text-white/55 hover:text-white transition-colors">
+              <Store size={16} /> Go to full store
+            </button>
+          )}
         </div>
       </aside>
 
@@ -227,7 +209,6 @@ export default function ChatPage() {
 
       {/* ── Main ── */}
       <main className="flex-1 flex flex-col min-w-0" style={{ background: `radial-gradient(120% 80% at 50% 0%, ${PURPLE} 0%, ${PURPLE_NIGHT} 70%)` }}>
-        {/* Top bar */}
         <header className="flex items-center gap-3 px-4 py-3 shrink-0" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
           <button className="md:hidden" onClick={() => setSidebarOpen(true)}><Menu size={22} className="text-white/70" /></button>
           <div className="flex items-center gap-2.5 min-w-0">
@@ -248,7 +229,6 @@ export default function ChatPage() {
           )}
         </header>
 
-        {/* Thread */}
         <div ref={scrollRef} className="flex-1 overflow-y-auto">
           <div className="max-w-3xl mx-auto px-4 py-6">
             {isEmpty ? (
@@ -262,19 +242,12 @@ export default function ChatPage() {
           </div>
         </div>
 
-        {/* Composer */}
-        <div className="shrink-0 px-4 pb-5 pt-2" style={{ background: 'linear-gradient(to top, ' + PURPLE_NIGHT + ' 60%, transparent)' }}>
+        <div className="shrink-0 px-4 pb-5 pt-2" style={{ background: `linear-gradient(to top, ${PURPLE_NIGHT} 60%, transparent)` }}>
           <div className="max-w-3xl mx-auto">
             <div className="flex items-end gap-2 rounded-2xl px-3 py-2" style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.12)' }}>
-              <textarea
-                ref={inputRef}
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={onKeyDown}
-                rows={1}
+              <textarea ref={inputRef} value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={onKeyDown} rows={1}
                 placeholder="Message Adaeze…  (e.g. “I want to make jollof rice”)"
-                className="flex-1 bg-transparent outline-none resize-none text-[15px] py-2 max-h-32 placeholder:text-white/35"
-              />
+                className="flex-1 bg-transparent outline-none resize-none text-[15px] py-2 max-h-32 placeholder:text-white/35" />
               <button onClick={() => send(input)} disabled={!input.trim() || loading} aria-label="Send"
                 className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 disabled:opacity-40 transition-opacity"
                 style={{ background: input.trim() ? `linear-gradient(135deg,${GOLD},${GOLD_DK})` : 'rgba(255,255,255,0.12)' }}>
@@ -291,7 +264,6 @@ export default function ChatPage() {
   );
 }
 
-/* ── Empty / welcome state ── */
 function EmptyState({ onPick }: { onPick: (t: string) => void }) {
   return (
     <div className="flex flex-col items-center text-center pt-10 pb-4">
@@ -319,7 +291,6 @@ function EmptyState({ onPick }: { onPick: (t: string) => void }) {
   );
 }
 
-/* ── A single message (bubble + optional product cards + chips) ── */
 function MessageBlock({ m, last, loading, added, onAdd, onChip }: {
   m: Msg; last: boolean; loading: boolean;
   added: Record<string, number>; onAdd: (p: Card) => void; onChip: (t: string) => void;
@@ -341,14 +312,12 @@ function MessageBlock({ m, last, loading, added, onAdd, onChip }: {
         </div>
       </div>
 
-      {/* Product cards */}
       {!!m.products?.length && (
         <div className="ml-11 mt-3 grid grid-cols-2 sm:grid-cols-3 gap-2.5">
           {m.products.map((p) => {
             const cnt = added[p.id] || 0;
             return (
-              <div key={p.id} onClick={() => onAdd(p)}
-                className="rounded-2xl overflow-hidden cursor-pointer transition-all"
+              <div key={p.id} onClick={() => onAdd(p)} className="rounded-2xl overflow-hidden cursor-pointer transition-all"
                 style={{ background: PURPLE_DEEP, border: `1.5px solid ${cnt > 0 ? GOLD : 'rgba(255,255,255,0.1)'}`, boxShadow: cnt > 0 ? '0 0 14px rgba(245,158,11,0.25)' : 'none' }}>
                 <div className="relative w-full" style={{ height: 110, background: PURPLE }}>
                   {p.image_url
@@ -370,12 +339,10 @@ function MessageBlock({ m, last, loading, added, onAdd, onChip }: {
         </div>
       )}
 
-      {/* Chips */}
       {!!m.chips?.length && last && !loading && (
         <div className="ml-11 mt-3 flex flex-wrap gap-2">
           {m.chips.map((c) => (
-            <button key={c} onClick={() => onChip(c)}
-              className="px-3.5 py-1.5 rounded-full text-[13px] font-semibold transition-colors"
+            <button key={c} onClick={() => onChip(c)} className="px-3.5 py-1.5 rounded-full text-[13px] font-semibold transition-colors"
               style={{ color: GOLD, background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.32)' }}>
               {c}
             </button>
