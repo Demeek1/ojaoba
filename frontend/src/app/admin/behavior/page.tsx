@@ -87,7 +87,7 @@ export default function BehaviorPage() {
               {data.daily.length === 0 ? <Empty text="No activity yet" /> : (
                 <div className="flex items-end gap-1 h-36 mt-3">
                   {data.daily.slice(-30).map((d) => (
-                    <div key={d.day} className="flex-1 flex flex-col justify-end group relative" title={`${d.day}: ${d.views} views, ${d.purchases} purchases`}>
+                    <div key={d.day} className="flex-1 h-full flex flex-col justify-end group relative" title={`${d.day}: ${d.views} views, ${d.purchases} purchases`}>
                       <div className="rounded-t" style={{ height: `${(d.views / maxViews) * 100}%`, background: 'linear-gradient(to top,#7C3AED,#A78BFA)', minHeight: d.views ? 3 : 0 }} />
                       <div className="rounded-b" style={{ height: `${(d.purchases / maxViews) * 100}%`, background: GREEN, minHeight: d.purchases ? 2 : 0 }} />
                     </div>
