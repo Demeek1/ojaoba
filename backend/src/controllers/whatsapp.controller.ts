@@ -311,6 +311,46 @@ export const verifyWebOrder = async (req: Request, res: Response) => {
   } catch(e: any) { res.status(500).json({ error: e.message }); }
 };
 
+/** POST /admin/orders/:id/shopify-sync — manually (re)create the Shopify order for a paid order */
+export const retryShopifySync = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { rows } = await db.query(`SELECT * FROM orders WHERE id=$1`, [req.params.id]);
+    const order = rows[0];
+    if (!order) { res.status(404).json({ error: 'Order not found' }); return; }
+    if (order.shopify_order_id) { res.json({ ok: true, alreadySynced: true, shopifyOrderId: order.shopify_order_id }); return; }
+
+    const items = typeof order.items === 'string' ? JSON.parse(order.items) : (order.items || []);
+    if (!items.length) { res.status(400).json({ error: 'Order has no items' }); return; }
+
+    // Try to attach an existing Shopify customer (best effort)
+    const customerId = await shopify.findOrCreateShopifyCustomer(
+      order.phone, order.customer_name || '', order.customer_email || null
+    ).catch(() => null);
+
+    try {
+      const shopifyOrderId = await shopify.createShopifyOrder({
+        items,
+        customerName: order.customer_name || '',
+        customerPhone: order.phone,
+        deliveryAddress: order.delivery_address || '',
+        orderRef: order.paystack_ref || order.id,
+        customerId,
+        source: order.source || 'website',
+      });
+      await db.query(
+        `UPDATE orders SET shopify_order_id=$1, shopify_error=NULL, updated_at=NOW() WHERE id=$2`,
+        [shopifyOrderId, order.id]
+      );
+      shopify.incrementPurchaseCounts(items).catch(() => {});
+      res.json({ ok: true, shopifyOrderId });
+    } catch (e: any) {
+      const detail = e.response?.data ? JSON.stringify(e.response.data).slice(0, 500) : e.message;
+      await db.query(`UPDATE orders SET shopify_error=$1, updated_at=NOW() WHERE id=$2`, [detail, order.id]).catch(() => {});
+      res.status(502).json({ error: 'Shopify sync failed', detail });
+    }
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
+};
+
 /** GET /api/whatsapp/orders/track?phone=XXXXXXXXXX — public profile + order history */
 export const trackOrders = async (req: Request, res: Response) => {
   try {

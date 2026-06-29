@@ -318,12 +318,20 @@ export const createShopifyOrder = async (order: {
         if (i.note && i.note.trim()) li.properties = [{ name: 'Prep Instructions', value: i.note }];
         return li;
       }),
-      // Attach to existing Shopify customer if we found/created one
-      ...(order.customerId
-        ? { customer: { id: parseInt(order.customerId) } }
-        : { customer: { first_name: names[0]||'', last_name: names.slice(1).join(' ')||'', phone: order.customerPhone } }
-      ),
-      shipping_address: { name: order.customerName, address1: order.deliveryAddress, phone: order.customerPhone, country: 'Nigeria', country_code: 'NG' },
+      // Attach to an EXISTING Shopify customer only. We deliberately do NOT send an
+      // inline new-customer object, because creating a customer requires the
+      // write_customers scope — without it, Shopify rejects the whole order. The
+      // buyer's name/phone still live on the shipping address below.
+      ...(order.customerId ? { customer: { id: parseInt(order.customerId) } } : {}),
+      shipping_address: {
+        first_name: names[0] || order.customerName,
+        last_name: names.slice(1).join(' ') || '',
+        name: order.customerName,
+        address1: order.deliveryAddress || 'N/A',
+        phone: order.customerPhone,
+        country: 'Nigeria',
+        country_code: 'NG',
+      },
       note: orderNote,
       tags: `${source},ojaoba`,
       financial_status: 'paid',
