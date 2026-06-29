@@ -19,8 +19,9 @@ export interface ChatMessage { role: 'user' | 'assistant'; content: string; }
 export interface AssistantCard {
   id: string; title: string; price_kobo: number;
   image_url: string | null; category: string; description?: string;
+  shopify_id?: string | null;
 }
-export interface CartLine { id: string; title: string; qty: number; price_kobo: number; image_url?: string | null; }
+export interface CartLine { id: string; title: string; qty: number; price_kobo: number; image_url?: string | null; shopify_id?: string | null; }
 export interface CartAction {
   op: 'set';
   id: string;
@@ -28,6 +29,7 @@ export interface CartAction {
   title?: string;
   price_kobo?: number;
   image_url?: string | null;
+  shopify_id?: string | null;
 }
 export interface AssistantResult {
   reply: string;
@@ -135,6 +137,7 @@ function toCards(rows: any[]): AssistantCard[] {
     image_url: r.image_url || null,
     category: r.category || 'General',
     description: r.description || '',
+    shopify_id: r.shopify_id || null,
   }));
 }
 
@@ -163,6 +166,7 @@ async function runTool(
           title: prod.title,
           price_kobo: Number(prod.price_kobo) || 0,
           image_url: prod.image_url ?? null,
+          shopify_id: prod.shopify_id ?? null,
         });
         done.push(qty === 0 ? `removed ${prod.title}` : `set ${prod.title} to ${qty}`);
       }

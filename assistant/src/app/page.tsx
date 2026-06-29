@@ -20,7 +20,7 @@ const GREEN = '#22C55E';
 const STORE_URL = process.env.NEXT_PUBLIC_STORE_URL || '';
 
 /* ── Types & storage ── */
-interface Card { id: string; title: string; price_kobo: number; image_url: string | null; category: string; description?: string; }
+interface Card { id: string; title: string; price_kobo: number; image_url: string | null; category: string; description?: string; shopify_id?: string | null; }
 interface Msg { role: 'user' | 'assistant'; content: string; products?: Card[]; chips?: string[]; }
 interface Conversation { id: string; title: string; messages: Msg[]; updatedAt: number; }
 
@@ -133,7 +133,7 @@ export default function AssistantPage() {
     const ex = cart.find((c) => c.id === p.id);
     const next: CartItem[] = ex
       ? cart.map((c) => (c.id === p.id ? { ...c, qty: c.qty + 1 } : c))
-      : [...cart, { id: p.id, qty: 1, title: p.title, price_kobo: p.price_kobo, image_url: p.image_url || '', note: '' }];
+      : [...cart, { id: p.id, qty: 1, title: p.title, price_kobo: p.price_kobo, image_url: p.image_url || '', note: '', shopify_id: p.shopify_id ?? null }];
     saveCart(next);
     window.dispatchEvent(new Event('oja-cart-changed'));
     refreshCount();
@@ -150,7 +150,7 @@ export default function AssistantPage() {
       const idx = cart.findIndex((c) => c.id === a.id);
       if (q <= 0) { if (idx >= 0) cart.splice(idx, 1); continue; }
       if (idx >= 0) cart[idx] = { ...cart[idx], qty: q };
-      else if (a.title != null && a.price_kobo != null) cart.push({ id: a.id, qty: q, title: a.title, price_kobo: a.price_kobo, image_url: a.image_url || '', note: '' });
+      else if (a.title != null && a.price_kobo != null) cart.push({ id: a.id, qty: q, title: a.title, price_kobo: a.price_kobo, image_url: a.image_url || '', note: '', shopify_id: a.shopify_id ?? null });
     }
     saveCart(cart);
     window.dispatchEvent(new Event('oja-cart-changed'));

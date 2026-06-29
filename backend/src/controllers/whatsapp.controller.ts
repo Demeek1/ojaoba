@@ -293,10 +293,15 @@ export const verifyWebOrder = async (req: Request, res: Response) => {
       deliveryAddress: fullOrder?.delivery_address || '',
       orderRef: ref,
       customerId: shopifyCustomerId,
-      source: 'website',
+      source: fullOrder?.source || 'website',
     }).then(shopifyOrderId =>
-      db.query(`UPDATE orders SET shopify_order_id=$1, status='PROCESSING', updated_at=NOW() WHERE id=$2`, [shopifyOrderId, orderId])
-    ).catch(e => console.error('[Web] Shopify order creation failed:', e.message));
+      db.query(`UPDATE orders SET shopify_order_id=$1, shopify_error=NULL, status='PROCESSING', updated_at=NOW() WHERE id=$2`, [shopifyOrderId, orderId])
+    ).catch(e => {
+      // Record the failure on the order so it's visible in the admin (e.g. missing write_orders scope)
+      const detail = e.response?.data ? JSON.stringify(e.response.data).slice(0, 500) : e.message;
+      console.error('[Web] Shopify order creation failed:', detail);
+      db.query(`UPDATE orders SET shopify_error=$1, updated_at=NOW() WHERE id=$2`, [detail, orderId]).catch(() => {});
+    });
 
     // Increment purchase counts and sync collection order (non-blocking)
     shopify.incrementPurchaseCounts(paidItems).then(() => shopify.syncShopifyCollectionOrder()).catch(() => {});

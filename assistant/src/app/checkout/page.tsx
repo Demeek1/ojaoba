@@ -107,7 +107,7 @@ export default function CheckoutPage() {
     try { localStorage.setItem(PROFILE_KEY, JSON.stringify(profile)); } catch {}
     fetch(`${API_URL}/whatsapp/profile`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(profile) }).catch(() => {});
 
-    const items = cart.map((c) => ({ title: c.title, quantity: c.qty, priceKobo: c.price_kobo, imageUrl: c.image_url, note: c.note || '' }));
+    const items = cart.map((c) => ({ title: c.title, quantity: c.qty, priceKobo: c.price_kobo, imageUrl: c.image_url, note: c.note || '', shopifyId: c.shopify_id || null, variantId: c.variant_id || null }));
     let orderId = '', psRef = '';
     try {
       const res = await fetch(`${API_URL}/whatsapp/orders`, {

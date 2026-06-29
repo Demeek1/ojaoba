@@ -15,6 +15,7 @@ const GREEN = '#22C55E';
 interface Card {
   id: string; title: string; price_kobo: number;
   image_url: string | null; category: string; description?: string;
+  shopify_id?: string | null;
 }
 interface Msg {
   role: 'user' | 'assistant';
@@ -118,7 +119,7 @@ export default function AiAssistant() {
     const ex = cart.find((c) => c.id === p.id);
     let nextCart: CartItem[];
     if (ex) nextCart = cart.map((c) => c.id === p.id ? { ...c, qty: c.qty + 1 } : c);
-    else nextCart = [...cart, { id: p.id, qty: 1, title: p.title, price_kobo: p.price_kobo, image_url: p.image_url || '', note: '' }];
+    else nextCart = [...cart, { id: p.id, qty: 1, title: p.title, price_kobo: p.price_kobo, image_url: p.image_url || '', note: '', shopify_id: p.shopify_id ?? null }];
     saveCart(nextCart);
     window.dispatchEvent(new Event('oja-cart-changed'));
     refreshCount();
@@ -135,7 +136,7 @@ export default function AiAssistant() {
       const idx = cart.findIndex((c) => c.id === a.id);
       if (q <= 0) { if (idx >= 0) cart.splice(idx, 1); continue; }
       if (idx >= 0) cart[idx] = { ...cart[idx], qty: q };
-      else if (a.title != null && a.price_kobo != null) cart.push({ id: a.id, qty: q, title: a.title, price_kobo: a.price_kobo, image_url: a.image_url || '', note: '' });
+      else if (a.title != null && a.price_kobo != null) cart.push({ id: a.id, qty: q, title: a.title, price_kobo: a.price_kobo, image_url: a.image_url || '', note: '', shopify_id: a.shopify_id ?? null });
     }
     saveCart(cart);
     window.dispatchEvent(new Event('oja-cart-changed'));

@@ -32,6 +32,7 @@ export const chat = async (req: Request, res: Response): Promise<void> => {
             qty: Math.max(0, Math.floor(Number(c.qty)) || 0),
             price_kobo: Math.max(0, Math.floor(Number(c.price_kobo)) || 0),
             image_url: c.image_url ? String(c.image_url) : null,
+            shopify_id: c.shopify_id ? String(c.shopify_id) : null,
           }))
       : [];
 

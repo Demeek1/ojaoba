@@ -179,6 +179,8 @@ export default function CheckoutPage() {
       priceKobo: c.price_kobo,
       imageUrl:  c.image_url,
       note:      itemNotes[c.id] || '',
+      shopifyId: c.shopify_id || null,
+      variantId: c.variant_id || null,
     }));
 
     // Create pending order
