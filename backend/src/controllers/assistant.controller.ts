@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import db from '../db';
-import { runAssistant, ChatMessage } from '../services/assistant.service';
+import { runAssistant, ChatMessage, CartLine } from '../services/assistant.service';
 
 /**
  * POST /api/ai/chat
@@ -22,7 +22,20 @@ export const chat = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    const result = await runAssistant(messages);
+    const cart: CartLine[] = Array.isArray(req.body?.cart)
+      ? req.body.cart
+          .filter((c: any) => c && typeof c.id === 'string')
+          .slice(0, 50)
+          .map((c: any) => ({
+            id: String(c.id),
+            title: String(c.title || '').slice(0, 200),
+            qty: Math.max(0, Math.floor(Number(c.qty)) || 0),
+            price_kobo: Math.max(0, Math.floor(Number(c.price_kobo)) || 0),
+            image_url: c.image_url ? String(c.image_url) : null,
+          }))
+      : [];
+
+    const result = await runAssistant(messages, cart);
 
     // Log for behaviour insight (fire-and-forget — never block the reply)
     const userMsg = messages[messages.length - 1].content;

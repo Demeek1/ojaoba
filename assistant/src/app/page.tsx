@@ -115,7 +115,9 @@ export default function AssistantPage() {
 
     try {
       const history = withUser.messages.map((m) => ({ role: m.role, content: m.content }));
-      const { data } = await api.post('/ai/chat', { sessionId: convo.id, messages: history });
+      const cartPayload = loadCart().map((c) => ({ id: c.id, title: c.title, qty: c.qty, price_kobo: c.price_kobo, image_url: c.image_url }));
+      const { data } = await api.post('/ai/chat', { sessionId: convo.id, messages: history, cart: cartPayload });
+      if (data.cartActions?.length) applyCartActions(data.cartActions);
       const reply: Msg = { role: 'assistant', content: data.reply || 'Here you go 😊', products: data.products || [], chips: data.chips || [] };
       persist(working.map((c) => (c.id === convo!.id ? { ...withUser, messages: [...withUser.messages, reply], updatedAt: Date.now() } : c)));
     } catch {
@@ -137,6 +139,27 @@ export default function AssistantPage() {
     refreshCount();
     setAdded((a) => ({ ...a, [p.id]: (a[p.id] || 0) + 1 }));
     track('add_to_cart', { productId: p.id, valueKobo: p.price_kobo, metadata: { title: p.title } });
+  }
+
+  // Apply cart changes Adaeze made herself (add / change quantity / remove)
+  function applyCartActions(actions: any[]) {
+    const cart = loadCart();
+    for (const a of actions) {
+      if (!a || !a.id) continue;
+      const q = Math.max(0, Math.floor(Number(a.quantity)) || 0);
+      const idx = cart.findIndex((c) => c.id === a.id);
+      if (q <= 0) { if (idx >= 0) cart.splice(idx, 1); continue; }
+      if (idx >= 0) cart[idx] = { ...cart[idx], qty: q };
+      else if (a.title != null && a.price_kobo != null) cart.push({ id: a.id, qty: q, title: a.title, price_kobo: a.price_kobo, image_url: a.image_url || '', note: '' });
+    }
+    saveCart(cart);
+    window.dispatchEvent(new Event('oja-cart-changed'));
+    refreshCount();
+    setAdded((prev) => {
+      const next = { ...prev };
+      for (const a of actions) if (a?.id) next[a.id] = Math.max(0, Math.floor(Number(a.quantity)) || 0);
+      return next;
+    });
   }
 
   function onKeyDown(e: React.KeyboardEvent) {
