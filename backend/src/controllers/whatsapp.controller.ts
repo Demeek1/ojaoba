@@ -128,7 +128,8 @@ export const listOrders = async (req: Request, res: Response) => {
           o.delivery_address AS address,
           o.items, o.subtotal_kobo, o.delivery_fee_kobo, o.total_kobo,
           LOWER(o.status) AS status,
-          o.paystack_ref, o.notes, o.created_at
+          o.paystack_ref, o.notes, o.created_at,
+          o.source, o.shopify_order_id, o.shopify_error
         FROM orders o
         ${where}
         ORDER BY o.created_at DESC

@@ -31,6 +31,9 @@ interface Order {
   paystack_ref: string;
   notes: string;
   created_at: string;
+  source?: string;
+  shopify_order_id?: string | null;
+  shopify_error?: string | null;
 }
 
 const STATUSES = ['all', 'pending', 'paid', 'confirmed', 'processing', 'shipped', 'delivered', 'cancelled'];
@@ -134,6 +137,27 @@ function OrderDetailModal({ order, onClose }: { order: Order; onClose: () => voi
               {order.status}
             </span>
             {order.notes && <p className="text-sm text-gray-500 mt-2">Note: {order.notes}</p>}
+          </div>
+
+          {/* Shopify sync */}
+          <div>
+            <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">Shopify</h3>
+            {order.shopify_order_id ? (
+              <div className="flex items-center gap-2 text-sm font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-2">
+                <CheckCircle className="w-4 h-4" /> Synced to Shopify (order {order.shopify_order_id})
+              </div>
+            ) : order.shopify_error ? (
+              <div className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-xl px-3 py-2">
+                <p className="font-semibold flex items-center gap-1.5"><XCircle className="w-4 h-4" /> Shopify sync failed</p>
+                <p className="text-xs text-red-600 mt-1 break-words font-mono">{order.shopify_error}</p>
+              </div>
+            ) : (
+              <div className="text-sm text-gray-500 bg-gray-50 border border-gray-200 rounded-xl px-3 py-2">
+                {['pending'].includes(order.status)
+                  ? 'Not synced yet — Shopify order is created after payment is confirmed.'
+                  : 'No Shopify order recorded for this order yet.'}
+              </div>
+            )}
           </div>
 
           {/* Actions */}
