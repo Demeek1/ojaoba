@@ -22,6 +22,7 @@ r.get('/admin/orders',             requireAdmin, ctrl.listOrders);
 r.get('/admin/orders/:id',         requireAdmin, ctrl.getOrder);
 r.put('/admin/orders/:id/status',  requireAdmin, ctrl.updateOrderStatus);
 r.patch('/admin/orders/:id',       requireAdmin, ctrl.updateOrderStatus); // frontend sends PATCH
+r.post('/admin/orders/:id/shopify-sync', requireAdmin, ctrl.retryShopifySync);
 r.get('/admin/sessions',                       requireAdmin, ctrl.listSessions);
 r.get('/admin/sessions/:phone/messages',       requireAdmin, ctrl.getSessionMessages);
 r.post('/admin/sessions/:phone/reply',         requireAdmin, ctrl.adminReply);

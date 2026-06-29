@@ -70,6 +70,16 @@ function OrderDetailModal({ order, onClose }: { order: Order; onClose: () => voi
     onError: () => toast.error('Failed to update order'),
   });
 
+  const syncShopify = useMutation({
+    mutationFn: async () => (await api.post(`/whatsapp/admin/orders/${order.id}/shopify-sync`)).data,
+    onSuccess: (d: any) => {
+      toast.success(d?.alreadySynced ? 'Already in Shopify' : `Pushed to Shopify (order ${d?.shopifyOrderId})`);
+      qc.invalidateQueries({ queryKey: ['admin-orders'] });
+      onClose();
+    },
+    onError: (e: any) => toast.error(e?.response?.data?.detail || e?.response?.data?.error || 'Shopify sync failed'),
+  });
+
   const WA = process.env.NEXT_PUBLIC_WA_NUMBER || '';
 
   return (
@@ -157,6 +167,15 @@ function OrderDetailModal({ order, onClose }: { order: Order; onClose: () => voi
                   ? 'Not synced yet — Shopify order is created after payment is confirmed.'
                   : 'No Shopify order recorded for this order yet.'}
               </div>
+            )}
+            {!order.shopify_order_id && order.status !== 'pending' && (
+              <button
+                onClick={() => syncShopify.mutate()}
+                disabled={syncShopify.isPending}
+                className="mt-2 inline-flex items-center gap-2 text-sm font-semibold px-3 py-2 rounded-xl bg-gray-900 text-white hover:bg-gray-800 disabled:opacity-50"
+              >
+                {syncShopify.isPending ? 'Pushing…' : 'Push to Shopify'}
+              </button>
             )}
           </div>
 
