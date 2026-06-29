@@ -20,10 +20,20 @@ export interface AssistantCard {
   id: string; title: string; price_kobo: number;
   image_url: string | null; category: string; description?: string;
 }
+export interface CartLine { id: string; title: string; qty: number; price_kobo: number; image_url?: string | null; }
+export interface CartAction {
+  op: 'set';
+  id: string;
+  quantity: number; // absolute desired total quantity (0 = remove)
+  title?: string;
+  price_kobo?: number;
+  image_url?: string | null;
+}
 export interface AssistantResult {
   reply: string;
   products: AssistantCard[];
   chips: string[];
+  cartActions: CartAction[];
   searchQuery?: string;
 }
 
@@ -39,11 +49,29 @@ HOW THE UI WORKS (very important):
 - So in your text reply, DO NOT list product names and prices line by line. Instead, briefly say what you found and invite them ("Here are some lovely options 👇 — tap any to add to your cart").
 - Keep every reply SHORT: 1–2 sentences. Be conversational, not robotic.
 
+CART & ACTIONS (very important):
+- You can SEE the customer's current cart — it is given to you below each turn.
+- You CAN change the cart yourself by calling the update_cart tool: add items, change how many, or remove.
+- For an item ALREADY in the cart, pass its productId and the new TOTAL quantity. (e.g. cart has 1 and they want "6 more" → set quantity to 7.)
+- For a NEW item, pass a "query" (the product name) and the quantity — I'll find and add it.
+- Set quantity to 0 to remove an item.
+- After changing the cart, confirm briefly and naturally (e.g. "Done — you now have 7× 5 Alive 30cl in your cart 🛒").
+- When the customer says things like "add 2 of those", "make it 5", "remove the rice", "add 6 more of what I just added" — use update_cart. Don't tell them to tap; just do it.
+
 RULES:
 - Never say you are an AI or a bot. If asked your name: "I'm Adaeze, your Ojaoba shopping assistant 😊".
 - Always try to move the customer toward finding items and checking out smoothly.
 - If they ask about delivery, payment, or an order, answer helpfully and warmly, then offer to keep shopping.
 - If you truly can't help, suggest they type "support" to reach the team.`;
+
+function buildSystem(cart: CartLine[]): string {
+  if (!cart || !cart.length) return SYSTEM + `\n\nCURRENT CART: empty.`;
+  const lines = cart
+    .map((c) => `- [productId: ${c.id}] ${c.title} × ${c.qty} (₦${(Number(c.price_kobo) / 100).toLocaleString('en-NG')})`)
+    .join('\n');
+  const total = cart.reduce((s, c) => s + c.qty, 0);
+  return `${SYSTEM}\n\nCURRENT CART (${total} item${total === 1 ? '' : 's'}):\n${lines}`;
+}
 
 const TOOLS = [
   {
@@ -74,6 +102,29 @@ const TOOLS = [
     description: 'List all available product categories. Use when the customer asks what you sell or wants to see departments.',
     input_schema: { type: 'object', properties: {}, required: [] },
   },
+  {
+    name: 'update_cart',
+    description: "Add items to the customer's cart, change quantities, or remove items. Use this whenever the customer asks to add/buy/remove something or change how many they want — including phrases like 'add 2 of those', 'make it 5', 'add 6 more of what I just added', or 'remove the rice'. Do NOT just tell them to tap a card — actually update the cart with this tool.",
+    input_schema: {
+      type: 'object',
+      properties: {
+        items: {
+          type: 'array',
+          description: 'The items to set in the cart.',
+          items: {
+            type: 'object',
+            properties: {
+              productId: { type: 'string', description: 'The productId of an item ALREADY in the cart (from the CURRENT CART list). Use this to change/remove an existing item.' },
+              query: { type: 'string', description: 'For a NEW item not yet in the cart: the product name to find, e.g. "palm oil".' },
+              quantity: { type: 'integer', description: 'The desired TOTAL quantity for this item after the change. Use 0 to remove it.' },
+            },
+            required: ['quantity'],
+          },
+        },
+      },
+      required: ['items'],
+    },
+  },
 ];
 
 function toCards(rows: any[]): AssistantCard[] {
@@ -87,8 +138,40 @@ function toCards(rows: any[]): AssistantCard[] {
   }));
 }
 
-async function runTool(name: string, input: any): Promise<{ summary: string; cards: AssistantCard[]; query?: string }> {
+async function runTool(
+  name: string,
+  input: any,
+  cart: CartLine[]
+): Promise<{ summary: string; cards: AssistantCard[]; query?: string; cartActions?: CartAction[] }> {
   try {
+    if (name === 'update_cart') {
+      const items = Array.isArray(input?.items) ? input.items : [];
+      const actions: CartAction[] = [];
+      const done: string[] = [];
+      for (const it of items) {
+        const qty = Math.max(0, Math.floor(Number(it?.quantity)));
+        if (Number.isNaN(qty)) continue;
+        // Resolve the product: existing cart item first, otherwise search
+        let prod: any = it?.productId ? cart.find((c) => c.id === it.productId) : undefined;
+        if (!prod && it?.query) prod = (await shopify.searchProducts(String(it.query), 1))[0];
+        if (!prod && it?.productId) prod = (await shopify.searchProducts(String(it.productId), 1))[0];
+        if (!prod) { done.push(`couldn't find "${it?.query || it?.productId}"`); continue; }
+        actions.push({
+          op: 'set',
+          id: prod.id,
+          quantity: qty,
+          title: prod.title,
+          price_kobo: Number(prod.price_kobo) || 0,
+          image_url: prod.image_url ?? null,
+        });
+        done.push(qty === 0 ? `removed ${prod.title}` : `set ${prod.title} to ${qty}`);
+      }
+      return {
+        cards: [],
+        cartActions: actions,
+        summary: actions.length ? `Cart updated: ${done.join('; ')}.` : `No cart changes made (${done.join('; ') || 'nothing matched'}).`,
+      };
+    }
     if (name === 'search_products') {
       const q = String(input?.query || '').trim();
       const rows = await shopify.searchProducts(q, 8);
@@ -155,6 +238,7 @@ async function fallback(messages: ChatMessage[]): Promise<AssistantResult> {
       reply: "Hi, I'm Adaeze 😊 What are you shopping for today? Pick a category or tell me what you need.",
       products: [],
       chips: await buildChips([]),
+      cartActions: [],
     };
   }
   const rows = await shopify.searchProducts(last, 8).catch(() => []);
@@ -165,21 +249,25 @@ async function fallback(messages: ChatMessage[]): Promise<AssistantResult> {
       : `I couldn't find "${last}" right now. Want to try another item or browse a category?`,
     products: cards,
     chips: await buildChips(cards),
+    cartActions: [],
     searchQuery: last,
   };
 }
 
 /**
  * Main entry — runs the conversational assistant.
+ * `cart` is the customer's current cart so Adaeze can see and modify it.
  */
-export async function runAssistant(messages: ChatMessage[]): Promise<AssistantResult> {
+export async function runAssistant(messages: ChatMessage[], cart: CartLine[] = []): Promise<AssistantResult> {
   const key = API_KEY();
   if (!key) return fallback(messages);
 
   // Anthropic message history (trim to last ~12 turns for cost/latency)
   const history: any[] = messages.slice(-12).map((m) => ({ role: m.role, content: m.content }));
+  const system = buildSystem(cart);
 
   let collected: AssistantCard[] = [];
+  let cartActions: CartAction[] = [];
   let lastQuery: string | undefined;
   let finalText = '';
 
@@ -187,7 +275,7 @@ export async function runAssistant(messages: ChatMessage[]): Promise<AssistantRe
     for (let round = 0; round < 4; round++) {
       const res = await axios.post(
         'https://api.anthropic.com/v1/messages',
-        { model: MODEL(), max_tokens: 400, system: SYSTEM, tools: TOOLS, messages: history },
+        { model: MODEL(), max_tokens: 400, system, tools: TOOLS, messages: history },
         {
           headers: { 'x-api-key': key, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
           timeout: 15000,
@@ -204,8 +292,9 @@ export async function runAssistant(messages: ChatMessage[]): Promise<AssistantRe
       history.push({ role: 'assistant', content });
       const toolResults: any[] = [];
       for (const tu of toolUses) {
-        const out = await runTool(tu.name, tu.input);
+        const out = await runTool(tu.name, tu.input, cart);
         if (out.cards.length) collected = collected.concat(out.cards);
+        if (out.cartActions?.length) cartActions = cartActions.concat(out.cartActions);
         if (out.query) lastQuery = out.query;
         toolResults.push({ type: 'tool_result', tool_use_id: tu.id, content: out.summary });
       }
@@ -213,14 +302,16 @@ export async function runAssistant(messages: ChatMessage[]): Promise<AssistantRe
     }
   } catch (e: any) {
     console.error('[Assistant]', e.response?.data?.error?.message || e.message);
-    if (!finalText && !collected.length) return fallback(messages);
+    if (!finalText && !collected.length && !cartActions.length) return fallback(messages);
   }
 
   const products = dedupeCards(collected);
   if (!finalText) {
-    finalText = products.length
+    finalText = cartActions.length
+      ? "Done — I've updated your cart 🛒"
+      : products.length
       ? "Here are some options 👇 Tap any to add to your cart."
       : "I'm here to help you shop 😊 What are you looking for?";
   }
-  return { reply: finalText, products, chips: await buildChips(products), searchQuery: lastQuery };
+  return { reply: finalText, products, chips: await buildChips(products), cartActions, searchQuery: lastQuery };
 }
