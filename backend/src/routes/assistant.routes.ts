@@ -12,5 +12,6 @@ const aiLimiter = rateLimit({
 });
 
 r.post('/chat', aiLimiter, ctrl.chat);
+r.get('/profile', ctrl.profile);
 
 export default r;

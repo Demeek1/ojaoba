@@ -53,6 +53,8 @@ export default function AssistantPage() {
   const [added, setAdded] = useState<Record<string, number>>({});
   const [cartCount, setCartCount] = useState(0);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [customer, setCustomer] = useState<{ name?: string; phone?: string; email?: string } | null>(null);
+  const [profile, setProfile] = useState<any>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -69,6 +71,15 @@ export default function AssistantPage() {
     if (existing.length) setActiveId(existing[0].id);
     refreshCount();
     track('page_view', { path: '/' });
+    // Recognise a returning customer from their saved checkout details
+    try {
+      const saved = JSON.parse(localStorage.getItem('oja_assistant_customer') || 'null');
+      if (saved && (saved.phone || saved.email)) {
+        setCustomer({ name: saved.name, phone: saved.phone, email: saved.email });
+        api.get('/ai/profile', { params: { phone: saved.phone || '', email: saved.email || '' } })
+          .then((r) => setProfile(r.data)).catch(() => {});
+      }
+    } catch {}
     const sync = () => refreshCount();
     window.addEventListener('oja-cart-changed', sync);
     window.addEventListener('storage', sync);
@@ -116,7 +127,7 @@ export default function AssistantPage() {
     try {
       const history = withUser.messages.map((m) => ({ role: m.role, content: m.content }));
       const cartPayload = loadCart().map((c) => ({ id: c.id, title: c.title, qty: c.qty, price_kobo: c.price_kobo, image_url: c.image_url }));
-      const { data } = await api.post('/ai/chat', { sessionId: convo.id, messages: history, cart: cartPayload });
+      const { data } = await api.post('/ai/chat', { sessionId: convo.id, messages: history, cart: cartPayload, customer: customer || undefined });
       if (data.cartActions?.length) applyCartActions(data.cartActions);
       const reply: Msg = { role: 'assistant', content: data.reply || 'Here you go 😊', products: data.products || [], chips: data.chips || [] };
       persist(working.map((c) => (c.id === convo!.id ? { ...withUser, messages: [...withUser.messages, reply], updatedAt: Date.now() } : c)));
@@ -255,7 +266,7 @@ export default function AssistantPage() {
         <div ref={scrollRef} className="flex-1 overflow-y-auto">
           <div className="max-w-3xl mx-auto px-4 py-6">
             {isEmpty ? (
-              <EmptyState onPick={send} />
+              <EmptyState onPick={send} name={customer?.name || profile?.name} profile={profile} />
             ) : (
               messages.map((m, i) => (
                 <MessageBlock key={i} m={m} last={i === messages.length - 1} loading={loading} added={added} onAdd={addToCart} onChip={send} />
@@ -287,18 +298,28 @@ export default function AssistantPage() {
   );
 }
 
-function EmptyState({ onPick }: { onPick: (t: string) => void }) {
+function EmptyState({ onPick, name, profile }: { onPick: (t: string) => void; name?: string | null; profile?: any }) {
+  const firstName = name ? String(name).trim().split(/\s+/)[0] : '';
+  const usual = profile?.recentItems?.length ? profile.recentItems.slice(0, 3).join(', ') : '';
+  const suggestions = [
+    ...(usual ? [{ emoji: '🔁', label: 'Reorder my usuals', prompt: `Reorder my usual items: ${usual}` }] : []),
+    ...SUGGESTIONS,
+  ].slice(0, 4);
   return (
     <div className="flex flex-col items-center text-center pt-10 pb-4">
       <div className="w-16 h-16 rounded-2xl flex items-center justify-center mb-5" style={{ background: `linear-gradient(135deg,${GOLD},${GOLD_DK})`, boxShadow: '0 14px 40px rgba(245,158,11,0.4)' }}>
         <Crown size={30} color={PURPLE_DEEP} fill={PURPLE_DEEP} />
       </div>
-      <h1 className="text-2xl md:text-3xl font-black">How can I help you shop today?</h1>
+      <h1 className="text-2xl md:text-3xl font-black">
+        {firstName ? `Welcome back, ${firstName} 👑` : 'How can I help you shop today?'}
+      </h1>
       <p className="text-white/55 mt-2 max-w-md text-sm md:text-base">
-        I'm Adaeze, your Ojaoba assistant. Ask me anything, find products, or let me plan a meal and fill your cart — just chat.
+        {firstName
+          ? `Good to see you again! ${profile?.orderCount ? `You've placed ${profile.orderCount} order${profile.orderCount > 1 ? 's' : ''} with us. ` : ''}Want to reorder, or find something new?`
+          : "I'm Adaeze, your Ojaoba assistant. Ask me anything, find products, or let me plan a meal and fill your cart — just chat."}
       </p>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-8 w-full max-w-xl">
-        {SUGGESTIONS.map((s) => (
+        {suggestions.map((s) => (
           <button key={s.label} onClick={() => onPick(s.prompt)}
             className="flex items-center gap-3 p-4 rounded-2xl text-left transition-colors hover:bg-white/[0.07]"
             style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.09)' }}>

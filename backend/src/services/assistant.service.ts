@@ -127,7 +127,35 @@ const TOOLS = [
       required: ['items'],
     },
   },
+  {
+    name: 'lookup_customer',
+    description: "Look up the customer's Ojaoba profile and order history by phone number or email. Use this when a customer asks about their past orders, wants to reorder ('my usual', 'same as last time'), asks for their saved delivery address, or gives you their phone/email so you can recognise them.",
+    input_schema: {
+      type: 'object',
+      properties: {
+        phone: { type: 'string', description: 'Customer phone number (Nigerian format ok, e.g. 0807...)' },
+        email: { type: 'string', description: 'Customer email address' },
+      },
+      required: [],
+    },
+  },
 ];
+
+function money(kobo: number) { return `₦${(kobo / 100).toLocaleString('en-NG')}`; }
+
+function profileSummary(p: any): string {
+  if (!p || !p.found) return 'No existing Ojaoba profile or order history found for that customer.';
+  const bits: string[] = [];
+  if (p.name) bits.push(`Name: ${p.name}`);
+  bits.push(`${p.orderCount} past order(s), total spent ${money(p.totalSpentKobo || 0)}`);
+  if (p.savedAddress) bits.push(`Saved delivery address: ${p.savedAddress}`);
+  if (p.recentItems?.length) bits.push(`Frequently buys: ${p.recentItems.join(', ')}`);
+  if (p.recentOrders?.length) {
+    const last = p.recentOrders[0];
+    bits.push(`Last order (${last.status}): ${last.items.map((i: any) => `${i.qty}× ${i.title}`).join(', ')}`);
+  }
+  return bits.join('. ');
+}
 
 function toCards(rows: any[]): AssistantCard[] {
   return (rows || []).map((r) => ({
@@ -147,6 +175,10 @@ async function runTool(
   cart: CartLine[]
 ): Promise<{ summary: string; cards: AssistantCard[]; query?: string; cartActions?: CartAction[] }> {
   try {
+    if (name === 'lookup_customer') {
+      const profile = await shopify.getAiCustomerProfile(input?.phone || null, input?.email || null);
+      return { cards: [], summary: profileSummary(profile) };
+    }
     if (name === 'update_cart') {
       const items = Array.isArray(input?.items) ? input.items : [];
       const actions: CartAction[] = [];
@@ -262,13 +294,24 @@ async function fallback(messages: ChatMessage[]): Promise<AssistantResult> {
  * Main entry — runs the conversational assistant.
  * `cart` is the customer's current cart so Adaeze can see and modify it.
  */
-export async function runAssistant(messages: ChatMessage[], cart: CartLine[] = []): Promise<AssistantResult> {
+export interface CustomerCtx { name?: string | null; phone?: string | null; email?: string | null; }
+
+export async function runAssistant(
+  messages: ChatMessage[],
+  cart: CartLine[] = [],
+  customer: CustomerCtx = {}
+): Promise<AssistantResult> {
   const key = API_KEY();
   if (!key) return fallback(messages);
 
   // Anthropic message history (trim to last ~12 turns for cost/latency)
   const history: any[] = messages.slice(-12).map((m) => ({ role: m.role, content: m.content }));
-  const system = buildSystem(cart);
+  let system = buildSystem(cart);
+  if (customer.name || customer.phone || customer.email) {
+    system += `\n\nKNOWN CUSTOMER: You are chatting with ${customer.name || 'a returning customer'}`
+      + `${customer.phone ? ` (phone ${customer.phone})` : ''}${customer.email ? ` (email ${customer.email})` : ''}.`
+      + ` Greet them warmly by their first name. For their order history, saved address, or to reorder "their usual", call the lookup_customer tool with their phone/email.`;
+  }
 
   let collected: AssistantCard[] = [];
   let cartActions: CartAction[] = [];
