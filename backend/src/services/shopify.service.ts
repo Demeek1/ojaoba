@@ -257,9 +257,11 @@ export const findOrCreateShopifyCustomer = async (
   try {
     const api = shopify();
     const cleanPhone = phone.startsWith('+') ? phone : `+${phone}`;
-    const names = name.trim().split(' ');
+    const parts = name.trim().split(/\s+/).filter(Boolean);
+    const firstName = parts[0] || 'Ojaoba';
+    const lastName = parts.slice(1).join(' ').trim(); // may be empty for single-name customers
 
-    // 1. Search by phone
+    // 1. Search by phone (matches an existing Shopify customer — repeat buyers)
     const { data: byPhone } = await api.get('/customers/search.json', {
       params: { query: `phone:${cleanPhone}`, limit: 1 },
     });
@@ -273,14 +275,15 @@ export const findOrCreateShopifyCustomer = async (
       if (byEmail.customers?.length) return String(byEmail.customers[0].id);
     }
 
-    // 3. Create new customer
+    // 3. Create new customer. Omit last_name when blank (sending "" can trip validation);
+    //    phone alone is enough to identify the customer in Shopify.
     const { data: created } = await api.post('/customers.json', {
       customer: {
-        first_name: names[0] || '',
-        last_name: names.slice(1).join(' ') || '',
+        first_name: firstName,
+        ...(lastName ? { last_name: lastName } : {}),
         phone: cleanPhone,
         ...(email ? { email, verified_email: true } : {}),
-        tags: 'ojaoba',
+        tags: 'ojaoba,website',
       },
     });
     return String(created.customer.id);
