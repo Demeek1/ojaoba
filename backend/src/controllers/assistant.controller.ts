@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import db from '../db';
 import { runAssistant, ChatMessage, CartLine } from '../services/assistant.service';
+import * as shopify from '../services/shopify.service';
 
 /**
  * POST /api/ai/chat
@@ -36,7 +37,14 @@ export const chat = async (req: Request, res: Response): Promise<void> => {
           }))
       : [];
 
-    const result = await runAssistant(messages, cart);
+    const c = req.body?.customer || {};
+    const customer = {
+      name: c.name ? String(c.name).slice(0, 120) : null,
+      phone: c.phone ? String(c.phone).slice(0, 32) : null,
+      email: c.email ? String(c.email).slice(0, 160) : null,
+    };
+
+    const result = await runAssistant(messages, cart, customer);
 
     // Log for behaviour insight (fire-and-forget — never block the reply)
     const userMsg = messages[messages.length - 1].content;
@@ -50,6 +58,22 @@ export const chat = async (req: Request, res: Response): Promise<void> => {
     }
 
     res.json({ sessionId, ...result });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+};
+
+/**
+ * GET /api/ai/profile?phone=&email=
+ * Returns a compact customer profile for the assistant UI (welcome header, reorder).
+ */
+export const profile = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const phone = req.query.phone ? String(req.query.phone) : null;
+    const email = req.query.email ? String(req.query.email) : null;
+    if (!phone && !email) { res.status(400).json({ error: 'phone or email required' }); return; }
+    const p = await shopify.getAiCustomerProfile(phone, email);
+    res.json(p);
   } catch (e: any) {
     res.status(500).json({ error: e.message });
   }

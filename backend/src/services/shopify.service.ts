@@ -462,3 +462,85 @@ export const getCustomerProfile = async (rawPhone: string, email?: string | null
     return null;
   }
 };
+
+export interface AiCustomerProfile {
+  found: boolean;
+  name: string | null;
+  email: string | null;
+  phone: string | null;
+  savedAddress: string | null;
+  orderCount: number;
+  totalSpentKobo: number;
+  recentItems: string[];                       // unique product titles they've bought
+  recentOrders: { date: string; status: string; totalKobo: number; items: { title: string; qty: number }[] }[];
+}
+
+/**
+ * Build a unified customer profile for the AI assistant — merges our local orders,
+ * saved checkout profile and the customer's Shopify order history. Works for both
+ * brand-new and long-standing Ojaoba customers.
+ */
+export const getAiCustomerProfile = async (
+  rawPhone?: string | null, email?: string | null
+): Promise<AiCustomerProfile> => {
+  const empty: AiCustomerProfile = {
+    found: false, name: null, email: email || null, phone: rawPhone || null,
+    savedAddress: null, orderCount: 0, totalSpentKobo: 0, recentItems: [], recentOrders: [],
+  };
+  try {
+    const digits = (rawPhone || '').replace(/\D/g, '');
+    const { candidates } = digits ? ngPhoneFormats(digits) : { candidates: [] as string[] };
+
+    // Local orders (website + WhatsApp)
+    let localOrders: any[] = [];
+    let saved: any = null;
+    if (candidates.length) {
+      const o = await db.query(
+        `SELECT customer_name, delivery_address, items, total_kobo, LOWER(status) AS status, created_at
+           FROM orders WHERE phone = ANY($1) AND status <> 'PENDING_PAYMENT'
+          ORDER BY created_at DESC LIMIT 10`, [candidates]
+      ).catch(() => ({ rows: [] }));
+      localOrders = o.rows;
+      const p = await db.query(`SELECT name, email, address FROM customer_profiles WHERE phone = ANY($1) LIMIT 1`, [candidates]).catch(() => ({ rows: [] }));
+      saved = p.rows[0] || null;
+    }
+
+    // Shopify history
+    const sp = await getCustomerProfile(digits, email || saved?.email || null).catch(() => null);
+
+    const norm = (items: any) => {
+      const arr = typeof items === 'string' ? JSON.parse(items || '[]') : (items || []);
+      return arr.map((i: any) => ({ title: i.title, qty: i.quantity ?? i.qty ?? 1 }));
+    };
+    const localMapped = localOrders.map((o) => ({
+      date: o.created_at, status: o.status, totalKobo: Number(o.total_kobo) || 0, items: norm(o.items),
+    }));
+    const shopMapped = (sp?.shopifyOrders || []).map((o: any) => ({
+      date: o.created_at, status: o.status, totalKobo: Number(o.total_kobo) || 0,
+      items: (o.items || []).map((i: any) => ({ title: i.title, qty: i.quantity ?? 1 })),
+    }));
+
+    const allOrders = [...localMapped, ...shopMapped]
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+    const recentItems = [...new Set(allOrders.flatMap((o) => o.items.map((i) => i.title)).filter(Boolean))].slice(0, 8);
+    const totalSpentKobo = allOrders.reduce((s, o) => s + o.totalKobo, 0);
+    const name = sp?.name || saved?.name || localOrders[0]?.customer_name || null;
+    const savedAddress = saved?.address || localOrders[0]?.delivery_address || null;
+
+    return {
+      found: allOrders.length > 0 || !!saved || !!sp?.found,
+      name,
+      email: sp?.email || saved?.email || email || null,
+      phone: rawPhone || null,
+      savedAddress,
+      orderCount: allOrders.length,
+      totalSpentKobo,
+      recentItems,
+      recentOrders: allOrders.slice(0, 5),
+    };
+  } catch (e: any) {
+    console.warn('[Shopify] getAiCustomerProfile failed:', e.message);
+    return empty;
+  }
+};

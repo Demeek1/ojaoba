@@ -95,7 +95,12 @@ export default function AiAssistant() {
     try {
       const history = next.map((m) => ({ role: m.role, content: m.content }));
       const cartPayload = loadCart().map((c) => ({ id: c.id, title: c.title, qty: c.qty, price_kobo: c.price_kobo, image_url: c.image_url }));
-      const { data } = await api.post('/ai/chat', { sessionId: sessionId.current, messages: history, cart: cartPayload });
+      let customer: any;
+      try {
+        const saved = JSON.parse(localStorage.getItem('oja_customer_v2') || 'null');
+        if (saved && (saved.phone || saved.email)) customer = { name: saved.name, phone: saved.phone, email: saved.email };
+      } catch {}
+      const { data } = await api.post('/ai/chat', { sessionId: sessionId.current, messages: history, cart: cartPayload, customer });
       if (data.cartActions?.length) applyCartActions(data.cartActions);
       setMsgs((m) => [...m, {
         role: 'assistant',
