@@ -304,13 +304,20 @@ export const createShopifyOrder = async (order: {
 
   const { data } = await shopify().post('/orders.json', {
     order: {
-      line_items: order.items.map(i => ({
-        title: i.title,
-        quantity: i.quantity,
-        price: ((i.priceKobo || i.price_kobo || 0)/100).toFixed(2),
-        ...(i.variantId ? { variant_id: parseInt(i.variantId) } : (i.shopifyId ? { product_id: parseInt(i.shopifyId) } : {})),
-        ...(i.note && i.note.trim() ? { properties: [{ name: 'Prep Instructions', value: i.note }] } : {}),
-      })),
+      line_items: order.items.map(i => {
+        const li: any = {
+          title: i.title,
+          quantity: i.quantity,
+          price: ((i.priceKobo || i.price_kobo || 0) / 100).toFixed(2),
+        };
+        // Link to a real Shopify variant when we have one (decrements inventory).
+        // Otherwise keep it a custom line item (title + price) so the order still
+        // creates cleanly — never send product_id alone (Shopify rejects that).
+        const vId = String(i.variantId || '');
+        if (/^\d+$/.test(vId)) li.variant_id = parseInt(vId, 10);
+        if (i.note && i.note.trim()) li.properties = [{ name: 'Prep Instructions', value: i.note }];
+        return li;
+      }),
       // Attach to existing Shopify customer if we found/created one
       ...(order.customerId
         ? { customer: { id: parseInt(order.customerId) } }

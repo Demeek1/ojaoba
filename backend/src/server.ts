@@ -156,6 +156,7 @@ async function setupDatabase() {
     // Website order support — add columns if they don't exist yet
     await db.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS source TEXT DEFAULT 'whatsapp'`);
     await db.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS customer_email TEXT`);
+    await db.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS shopify_error TEXT`);
     await db.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS shopify_customer_id TEXT`);
     await db.query(`CREATE INDEX IF NOT EXISTS idx_orders_source ON orders(source)`);
     await db.query(`CREATE INDEX IF NOT EXISTS idx_orders_shopify_customer ON orders(shopify_customer_id)`);

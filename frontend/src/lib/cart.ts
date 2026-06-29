@@ -5,6 +5,8 @@ export interface CartItem {
   price_kobo: number;
   image_url: string;
   note: string; // per-item preparation note (e.g. "chopped", "sliced")
+  shopify_id?: string | null; // Shopify product id — links the order to the real product
+  variant_id?: string | null; // Shopify variant id — chosen size/option, decrements inventory
 }
 
 const KEY = 'oja_cart';

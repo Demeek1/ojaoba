@@ -263,7 +263,8 @@ export default function HomePage() {
     setCart(prev => {
       const ex = prev.find(c=>c.id===id);
       if (ex) return prev.map(c=>c.id===id?{...c,qty:c.qty+1}:c);
-      return [...prev,{id,qty:1,title,price_kobo:price,image_url:p.image_url,note:''}];
+      return [...prev,{id,qty:1,title,price_kobo:price,image_url:p.image_url,note:'',
+        shopify_id:(p as any).shopify_id ?? null, variant_id: variant?.id ?? null}];
     });
     track('add_to_cart', { productId: p.id, valueKobo: price, metadata: { via: 'feed', title } });
   }
