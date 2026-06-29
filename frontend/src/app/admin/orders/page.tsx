@@ -73,7 +73,9 @@ function OrderDetailModal({ order, onClose }: { order: Order; onClose: () => voi
   const syncShopify = useMutation({
     mutationFn: async () => (await api.post(`/whatsapp/admin/orders/${order.id}/shopify-sync`)).data,
     onSuccess: (d: any) => {
-      toast.success(d?.alreadySynced ? 'Already in Shopify' : `Pushed to Shopify (order ${d?.shopifyOrderId})`);
+      if (d?.customerLinked) toast.success(`Synced to Shopify + customer linked (order ${d?.shopifyOrderId})`);
+      else if (d?.customerError) toast(`Order synced, but customer not linked: ${String(d.customerError).slice(0, 120)}`, { icon: '⚠️', duration: 7000 });
+      else toast.success(`Synced to Shopify (order ${d?.shopifyOrderId})`);
       qc.invalidateQueries({ queryKey: ['admin-orders'] });
       onClose();
     },

@@ -311,43 +311,62 @@ export const verifyWebOrder = async (req: Request, res: Response) => {
   } catch(e: any) { res.status(500).json({ error: e.message }); }
 };
 
-/** POST /admin/orders/:id/shopify-sync — manually (re)create the Shopify order for a paid order */
+/** POST /admin/orders/:id/shopify-sync — (re)create the Shopify order AND link the customer */
 export const retryShopifySync = async (req: Request, res: Response): Promise<void> => {
   try {
     const { rows } = await db.query(`SELECT * FROM orders WHERE id=$1`, [req.params.id]);
     const order = rows[0];
     if (!order) { res.status(404).json({ error: 'Order not found' }); return; }
-    if (order.shopify_order_id) { res.json({ ok: true, alreadySynced: true, shopifyOrderId: order.shopify_order_id }); return; }
 
     const items = typeof order.items === 'string' ? JSON.parse(order.items) : (order.items || []);
-    if (!items.length) { res.status(400).json({ error: 'Order has no items' }); return; }
 
-    // Try to attach an existing Shopify customer (best effort)
-    const customerId = await shopify.findOrCreateShopifyCustomer(
+    // Resolve (find or create) the Shopify customer — with diagnostics
+    const cust = await shopify.resolveShopifyCustomer(
       order.phone, order.customer_name || '', order.customer_email || null
-    ).catch(() => null);
+    );
 
-    try {
-      const shopifyOrderId = await shopify.createShopifyOrder({
-        items,
-        customerName: order.customer_name || '',
-        customerPhone: order.phone,
-        deliveryAddress: order.delivery_address || '',
-        orderRef: order.paystack_ref || order.id,
-        customerId,
-        source: order.source || 'website',
+    let shopifyOrderId: string = order.shopify_order_id;
+
+    // 1. Create the Shopify order if it doesn't exist yet
+    if (!shopifyOrderId) {
+      if (!items.length) { res.status(400).json({ error: 'Order has no items' }); return; }
+      try {
+        shopifyOrderId = await shopify.createShopifyOrder({
+          items,
+          customerName: order.customer_name || '',
+          customerPhone: order.phone,
+          deliveryAddress: order.delivery_address || '',
+          orderRef: order.paystack_ref || order.id,
+          customerId: cust.id,
+          source: order.source || 'website',
+        });
+        await db.query(`UPDATE orders SET shopify_order_id=$1, shopify_error=NULL, updated_at=NOW() WHERE id=$2`, [shopifyOrderId, order.id]);
+        shopify.incrementPurchaseCounts(items).catch(() => {});
+      } catch (e: any) {
+        const detail = e.response?.data ? JSON.stringify(e.response.data).slice(0, 500) : e.message;
+        await db.query(`UPDATE orders SET shopify_error=$1, updated_at=NOW() WHERE id=$2`, [detail, order.id]).catch(() => {});
+        res.status(502).json({ error: 'Shopify sync failed', detail });
+        return;
+      }
+    } else if (cust.id) {
+      // 2. Order already exists — attach the customer to it
+      await shopify.attachCustomerToOrder(shopifyOrderId, cust.id).catch((e: any) => {
+        cust.error = e.response?.data ? JSON.stringify(e.response.data).slice(0, 400) : e.message;
       });
-      await db.query(
-        `UPDATE orders SET shopify_order_id=$1, shopify_error=NULL, updated_at=NOW() WHERE id=$2`,
-        [shopifyOrderId, order.id]
-      );
-      shopify.incrementPurchaseCounts(items).catch(() => {});
-      res.json({ ok: true, shopifyOrderId });
-    } catch (e: any) {
-      const detail = e.response?.data ? JSON.stringify(e.response.data).slice(0, 500) : e.message;
-      await db.query(`UPDATE orders SET shopify_error=$1, updated_at=NOW() WHERE id=$2`, [detail, order.id]).catch(() => {});
-      res.status(502).json({ error: 'Shopify sync failed', detail });
     }
+
+    if (cust.id) {
+      await db.query(`UPDATE orders SET shopify_customer_id=$1 WHERE id=$2`, [cust.id, order.id]).catch(() => {});
+    } else if (cust.error) {
+      await db.query(`UPDATE orders SET shopify_error=$1, updated_at=NOW() WHERE id=$2`, [`Customer link: ${cust.error}`, order.id]).catch(() => {});
+    }
+
+    res.json({
+      ok: true,
+      shopifyOrderId,
+      customerLinked: !!cust.id,
+      customerError: cust.id ? null : cust.error,
+    });
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 };
 

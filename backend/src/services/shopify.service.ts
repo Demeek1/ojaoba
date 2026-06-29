@@ -251,46 +251,69 @@ export const syncShopifyCollectionOrder = async (): Promise<void> => {
  * Look up a Shopify customer by phone (and optionally email).
  * If not found, create one. Returns the Shopify customer ID or null on error.
  */
-export const findOrCreateShopifyCustomer = async (
+/** Normalise a Nigerian phone number to E.164 (+234…) and offer search variants. */
+function ngPhoneFormats(raw: string): { e164: string; candidates: string[] } {
+  const d = (raw || '').replace(/\D/g, '');
+  let e164: string;
+  const candidates: string[] = [];
+  if (d.startsWith('234')) { e164 = `+${d}`; candidates.push(`+${d}`, `0${d.slice(3)}`, d); }
+  else if (d.startsWith('0')) { e164 = `+234${d.slice(1)}`; candidates.push(e164, `234${d.slice(1)}`, d); }
+  else if (d.length === 10) { e164 = `+234${d}`; candidates.push(e164, `0${d}`, d); }
+  else { e164 = `+${d}`; candidates.push(`+${d}`, d); }
+  return { e164, candidates: [...new Set(candidates)] };
+}
+
+/**
+ * Find an existing Shopify customer (by phone/email) or create one.
+ * Returns the id plus any error detail so callers can surface why it failed.
+ */
+export const resolveShopifyCustomer = async (
   phone: string, name: string, email?: string | null
-): Promise<string | null> => {
+): Promise<{ id: string | null; error: string | null }> => {
   try {
     const api = shopify();
-    const cleanPhone = phone.startsWith('+') ? phone : `+${phone}`;
-    const parts = name.trim().split(/\s+/).filter(Boolean);
+    const { e164, candidates } = ngPhoneFormats(phone);
+    const parts = (name || '').trim().split(/\s+/).filter(Boolean);
     const firstName = parts[0] || 'Ojaoba';
-    const lastName = parts.slice(1).join(' ').trim(); // may be empty for single-name customers
+    const lastName = parts.slice(1).join(' ').trim();
 
-    // 1. Search by phone (matches an existing Shopify customer — repeat buyers)
-    const { data: byPhone } = await api.get('/customers/search.json', {
-      params: { query: `phone:${cleanPhone}`, limit: 1 },
-    });
-    if (byPhone.customers?.length) return String(byPhone.customers[0].id);
-
-    // 2. Search by email if provided
-    if (email) {
-      const { data: byEmail } = await api.get('/customers/search.json', {
-        params: { query: `email:${email}`, limit: 1 },
-      });
-      if (byEmail.customers?.length) return String(byEmail.customers[0].id);
+    // 1. Search by phone (try several formats — matches repeat buyers)
+    for (const ph of candidates) {
+      const { data } = await api.get('/customers/search.json', { params: { query: `phone:${ph}`, limit: 1 } });
+      if (data.customers?.length) return { id: String(data.customers[0].id), error: null };
     }
-
-    // 3. Create new customer. Omit last_name when blank (sending "" can trip validation);
-    //    phone alone is enough to identify the customer in Shopify.
+    // 2. Search by email
+    if (email) {
+      const { data } = await api.get('/customers/search.json', { params: { query: `email:${email}`, limit: 1 } });
+      if (data.customers?.length) return { id: String(data.customers[0].id), error: null };
+    }
+    // 3. Create — omit blank last_name; valid E.164 phone
     const { data: created } = await api.post('/customers.json', {
       customer: {
         first_name: firstName,
         ...(lastName ? { last_name: lastName } : {}),
-        phone: cleanPhone,
+        phone: e164,
         ...(email ? { email, verified_email: true } : {}),
         tags: 'ojaoba,website',
       },
     });
-    return String(created.customer.id);
+    return { id: String(created.customer.id), error: null };
   } catch (e: any) {
-    console.warn('[Shopify] findOrCreateShopifyCustomer failed:', e.message);
-    return null;
+    const detail = e.response?.data ? JSON.stringify(e.response.data).slice(0, 400) : e.message;
+    console.warn('[Shopify] resolveShopifyCustomer failed:', detail);
+    return { id: null, error: detail };
   }
+};
+
+export const findOrCreateShopifyCustomer = async (
+  phone: string, name: string, email?: string | null
+): Promise<string | null> => (await resolveShopifyCustomer(phone, name, email)).id;
+
+/** Attach an existing Shopify customer to an existing Shopify order. */
+export const attachCustomerToOrder = async (orderId: string, customerId: string): Promise<void> => {
+  await shopify().put(`/orders/${orderId}.json`, {
+    order: { id: parseInt(orderId, 10), customer: { id: parseInt(customerId, 10) } },
+  });
 };
 
 export const createShopifyOrder = async (order: {
