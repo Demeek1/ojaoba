@@ -1,4 +1,4 @@
-import { neon, neonConfig, Pool } from '@neondatabase/serverless';
+import { neonConfig, Pool } from '@neondatabase/serverless';
 
 /**
  * Database access with enforced multi-tenant isolation.
@@ -30,9 +30,13 @@ function connString(): string {
  * the build does not require a live DATABASE_URL.
  */
 export async function ownerQuery<T = any>(text: string, params: any[] = []): Promise<T[]> {
-  const sql = neon(connString());
-  const rows = await (sql as any).query(text, params);
-  return rows as T[];
+  const pool = new Pool({ connectionString: connString() });
+  try {
+    const res = await pool.query(text, params);
+    return res.rows as T[];
+  } finally {
+    await pool.end();
+  }
 }
 
 export interface TenantClient {
