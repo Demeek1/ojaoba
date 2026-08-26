@@ -1,6 +1,7 @@
 import { ownerQuery } from '@/lib/db';
 
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
 /**
  * TEMPORARY one-shot schema setup. Visiting this runs the full schema against

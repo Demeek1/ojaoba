@@ -2,6 +2,7 @@ import { ownerQuery } from '@/lib/db';
 import { hashPassword, createSession } from '@/lib/auth';
 
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
 /**
  * TEMPORARY diagnostic — runs each signup step and reports which one fails.
