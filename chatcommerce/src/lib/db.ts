@@ -1,4 +1,5 @@
 import { neonConfig, Pool } from '@neondatabase/serverless';
+import ws from 'ws';
 
 /**
  * Database access with enforced multi-tenant isolation.
@@ -17,6 +18,12 @@ import { neonConfig, Pool } from '@neondatabase/serverless';
  */
 
 neonConfig.poolQueryViaFetch = true;
+// Real transactions (pool.connect + BEGIN/COMMIT, needed for SET LOCAL / RLS)
+// require a WebSocket. Node <21 has no global WebSocket, so supply one. Harmless
+// where a global already exists.
+if (typeof (globalThis as any).WebSocket === 'undefined') {
+  neonConfig.webSocketConstructor = ws as any;
+}
 
 function connString(): string {
   const url = process.env.DATABASE_URL;
