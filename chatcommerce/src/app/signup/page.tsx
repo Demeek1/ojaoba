@@ -54,6 +54,11 @@ export default function Signup() {
         <button className="btn mt-6 w-full" disabled={loading}>
           {loading ? 'Creating…' : 'Create store'}
         </button>
+        <p className="mt-3 text-center text-xs text-forest-900/50">
+          By creating a store you agree to our{' '}
+          <Link href="/terms" className="font-medium text-brand-700">Terms</Link> and{' '}
+          <Link href="/privacy" className="font-medium text-brand-700">Privacy Policy</Link>.
+        </p>
         <p className="mt-4 text-center text-sm text-slate-600">
           Already have an account?{' '}
           <Link href="/login" className="font-medium text-brand-600">Log in</Link>

@@ -155,6 +155,8 @@ export default function Home() {
             <Link href="/pricing" className="hover:text-white">Pricing</Link>
             <Link href="/login" className="hover:text-white">Log in</Link>
             <Link href="/signup" className="hover:text-white">Get started</Link>
+            <Link href="/terms" className="hover:text-white">Terms</Link>
+            <Link href="/privacy" className="hover:text-white">Privacy</Link>
           </div>
         </div>
         <p className="mx-auto mt-10 max-w-6xl text-xs text-white/40">© {new Date().getFullYear()} ChatCommerce. All rights reserved.</p>

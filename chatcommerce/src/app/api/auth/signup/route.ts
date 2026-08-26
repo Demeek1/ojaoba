@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { ownerQuery } from '@/lib/db';
 import { hashPassword, createSession, setSessionCookie } from '@/lib/auth';
 import { json, err, guard, slugify } from '@/lib/util';
+import { clientIp, isRateLimited, recordFail } from '@/lib/ratelimit';
 
 export const runtime = 'nodejs';
 
@@ -13,6 +14,12 @@ const Body = z.object({
 
 export async function POST(req: Request) {
   return guard(async () => {
+    const ipKey = `signup:${clientIp(req)}`;
+    if (await isRateLimited(ipKey, 6, 60)) {
+      return err('Too many sign-up attempts. Please wait and try again later.', 429);
+    }
+    await recordFail(ipKey); // every signup attempt counts toward the per-IP cap
+
     const parsed = Body.safeParse(await req.json().catch(() => null));
     if (!parsed.success) return err('Invalid input: ' + parsed.error.issues[0]?.message, 422);
     const { businessName, email, password } = parsed.data;
