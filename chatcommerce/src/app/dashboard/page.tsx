@@ -2,7 +2,9 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { api, money } from '@/lib/client';
-import { Package, MessageCircle, Receipt, TrendingUp, ArrowUpRight, ExternalLink } from 'lucide-react';
+import {
+  Package, MessageCircle, Receipt, TrendingUp, ArrowUpRight, ExternalLink, Check, ArrowRight,
+} from 'lucide-react';
 
 export default function Overview() {
   const [me, setMe] = useState<any>(null);
@@ -30,6 +32,14 @@ export default function Overview() {
   if (error) return <p className="text-red-600">{error}</p>;
   if (!me) return <p className="text-forest-900/50">Loading…</p>;
 
+  const steps = [
+    { done: counts.products > 0, label: 'Add your first product', href: '/dashboard/products', cta: 'Add product' },
+    { done: counts.channels > 0, label: 'Connect a chat channel', href: '/dashboard/channels', cta: 'Connect channel' },
+    { done: counts.orders > 0, label: 'Receive your first order', href: '/dashboard/channels', cta: 'Test it' },
+  ];
+  const completed = steps.filter((s) => s.done).length;
+  const pct = Math.round((completed / steps.length) * 100);
+
   return (
     <div>
       <div className="flex flex-wrap items-end justify-between gap-3">
@@ -40,11 +50,7 @@ export default function Overview() {
             Status <span className="font-semibold capitalize text-forest-900">{me.tenant.status}</span>
           </p>
         </div>
-        <Link
-          href={`/store/${me.tenant.slug}`}
-          target="_blank"
-          className="btn-ghost-dark text-sm"
-        >
+        <Link href={`/store/${me.tenant.slug}`} target="_blank" className="btn-ghost-dark text-sm">
           View storefront <ExternalLink className="h-4 w-4" />
         </Link>
       </div>
@@ -56,20 +62,40 @@ export default function Overview() {
         <Stat label="Revenue" value={money(counts.gmv)} icon={<TrendingUp />} href="/dashboard/orders" highlight />
       </div>
 
-      <div className="mt-6 rounded-3xl border border-forest-900/5 bg-forest-900 p-7 text-white shadow-card">
-        <h2 className="font-display text-xl font-extrabold">Get set up in 3 steps</h2>
-        <ol className="mt-4 space-y-3 text-sm text-white/75">
-          <li className="flex gap-3"><Num n="1" /> <span><Link className="font-semibold text-brand-400" href="/dashboard/stores">Connect your store</Link> (Shopify / WooCommerce) and import products — or add them manually.</span></li>
-          <li className="flex gap-3"><Num n="2" /> <span><Link className="font-semibold text-brand-400" href="/dashboard/channels">Connect a channel</Link> (WhatsApp, Telegram or Instagram) and copy your webhook URL.</span></li>
-          <li className="flex gap-3"><Num n="3" /> <span>Message your bot “menu” and place a test order. 🎉</span></li>
-        </ol>
-      </div>
+      {/* Onboarding checklist */}
+      {completed < steps.length && (
+        <div className="mt-6 rounded-3xl border border-forest-900/5 bg-forest-900 p-7 text-white shadow-card">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="font-display text-xl font-extrabold">Finish setting up your store</h2>
+              <p className="mt-1 text-sm text-white/60">{completed} of {steps.length} done — you’re almost ready to sell.</p>
+            </div>
+            <span className="font-display text-2xl font-extrabold text-brand-400">{pct}%</span>
+          </div>
+          <div className="mt-4 h-2 w-full overflow-hidden rounded-full bg-white/10">
+            <div className="grad-lime h-full rounded-full transition-all" style={{ width: `${pct}%` }} />
+          </div>
+          <ul className="mt-6 space-y-3">
+            {steps.map((s) => (
+              <li key={s.label} className="flex items-center justify-between gap-3">
+                <span className="flex items-center gap-3">
+                  <span className={`flex h-6 w-6 items-center justify-center rounded-full ${s.done ? 'bg-brand-500 text-forest-900' : 'border border-white/25 text-white/40'}`}>
+                    {s.done ? <Check className="h-4 w-4" /> : ''}
+                  </span>
+                  <span className={s.done ? 'text-white/50 line-through' : 'font-medium text-white'}>{s.label}</span>
+                </span>
+                {!s.done && (
+                  <Link href={s.href} className="inline-flex items-center gap-1 rounded-full bg-brand-500 px-3 py-1.5 font-display text-xs font-bold text-forest-900">
+                    {s.cta} <ArrowRight className="h-3 w-3" />
+                  </Link>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   );
-}
-
-function Num({ n }: { n: string }) {
-  return <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand-500 font-display text-xs font-bold text-forest-900">{n}</span>;
 }
 
 function Stat({ label, value, icon, href, highlight }: { label: string; value: any; icon: React.ReactNode; href: string; highlight?: boolean }) {
