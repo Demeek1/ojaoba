@@ -16,5 +16,6 @@ export async function api<T = any>(
 }
 
 export function money(cents: number, currency = 'USD') {
-  return `${currency} ${(cents / 100).toFixed(2)}`;
+  const amount = (cents / 100).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return `${currency} ${amount}`;
 }
