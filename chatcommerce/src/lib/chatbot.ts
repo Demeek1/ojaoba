@@ -1,6 +1,8 @@
 import { tenantTx, ownerQuery } from './db';
 import type { InboundMessage } from './channels';
 import { aiEnabled, aiConcierge, type AiAction } from './ai';
+import { decryptSecrets } from './crypto';
+import { initializeTransaction, syntheticEmail } from './paystack';
 
 /** Build the "how to pay" message from the vendor's configured method. */
 function paymentInstructions(cfg: any, totalText: string): string {
@@ -115,7 +117,7 @@ export async function handleInbound(
   if (!action) action = parseKeyword(text);
 
   // ── Phase 3: apply the action (write transaction) ─────────────────────────
-  return tenantTx(tenantId, async (q) => {
+  const result: any = await tenantTx(tenantId, async (q) => {
     const cart = snap.cart;
     const save = (c: CartItem[]) =>
       q(`UPDATE conversations SET state = $2, updated_at = now() WHERE id = $1`, [
@@ -159,14 +161,14 @@ export async function handleInbound(
       case 'checkout': {
         if (cart.length === 0) return { text: 'Your cart is empty. Reply *menu* to browse.' };
         const total = cart.reduce((s, c) => s + c.priceCents * c.qty, 0);
-        await q(
+        const inserted = await q(
           `INSERT INTO orders (tenant_id, conversation_id, channel_type, customer_ref, items, total_cents, currency, status)
-           VALUES ($1,$2,$3,$4,$5::jsonb,$6,$7,'pending')`,
+           VALUES ($1,$2,$3,$4,$5::jsonb,$6,$7,'pending') RETURNING id`,
           [tenantId, snap.convId, channelType, inbound.customerRef, JSON.stringify(cart), total, currency],
         );
         await save([]);
-        const pay = paymentInstructions(payCfg, fmt(total, currency));
-        return { text: `🎉 Order placed! Total *${fmt(total, currency)}*.${pay || ` ${snap.storeName} will confirm shortly.`}\n\nReply *menu* to order again.` };
+        // Payment text is appended AFTER the transaction (may need an external call).
+        return { text: `🎉 Order placed! Total *${fmt(total, currency)}*.`, order: { id: inserted[0].id, total, currency } };
       }
 
       case 'clear':
@@ -179,6 +181,33 @@ export async function handleInbound(
         return { text: aiReply ?? `I didn't catch that. Reply *menu* to browse, *cart* to review, or *checkout* to order.` };
     }
   });
+
+  // ── Post-checkout: append payment instructions (may call Paystack) ────────
+  if (result?.order) {
+    const o = result.order;
+    let payText = '';
+    if (payCfg?.method === 'paystack_auto' && payCfg.paystackSecretEnc) {
+      try {
+        const sk = decryptSecrets(payCfg.paystackSecretEnc).sk;
+        const init = await initializeTransaction(sk, {
+          amountMinor: o.total,
+          email: syntheticEmail(inbound.customerRef),
+          currency: o.currency,
+          metadata: { order_id: o.id, tenant_id: tenantId },
+        });
+        payText = init
+          ? `\n\n💳 Pay ${fmt(o.total, o.currency)} securely:\n${init.url}\nYou'll be confirmed automatically once paid. ✅`
+          : `\n\n${snap.storeName} will confirm your order shortly.`;
+      } catch {
+        payText = `\n\n${snap.storeName} will confirm your order shortly.`;
+      }
+    } else {
+      payText = paymentInstructions(payCfg, fmt(o.total, o.currency)) || `\n\n${snap.storeName} will confirm your order shortly.`;
+    }
+    return { text: `${result.text}${payText}\n\nReply *menu* to order again.` };
+  }
+
+  return result;
 }
 
 /** Fallback intent parser when AI is not configured. */
