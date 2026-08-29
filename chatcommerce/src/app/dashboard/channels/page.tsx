@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { api } from '@/lib/client';
+import WidgetSnippet from './WidgetSnippet';
 
 // Which secret fields each channel needs. Stored encrypted; never shown back.
 const FIELDS: Record<string, { key: string; label: string; optional?: boolean }[]> = {
@@ -110,6 +111,8 @@ export default function Channels() {
           </div>
         ))}
       </div>
+
+      <WidgetSnippet />
     </div>
   );
 }
