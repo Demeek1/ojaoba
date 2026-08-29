@@ -3,6 +3,8 @@ import { ownerQuery } from '@/lib/db';
 import { hashPassword, createSession, setSessionCookie } from '@/lib/auth';
 import { json, err, guard, slugify } from '@/lib/util';
 import { clientIp, isRateLimited, recordFail } from '@/lib/ratelimit';
+import { createToken } from '@/lib/tokens';
+import { sendEmail, emailLayout, appUrl } from '@/lib/email';
 
 export const runtime = 'nodejs';
 
@@ -58,6 +60,23 @@ export async function POST(req: Request) {
       `INSERT INTO audit_log (tenant_id, actor, action, meta) VALUES ($1,$2,$3,$4::jsonb)`,
       [tenant.id, lowerEmail, 'signup', JSON.stringify({ slug })],
     );
+
+    // Send email verification (best-effort; never blocks signup). Table may not
+    // exist yet on older deployments — swallow errors so signup still succeeds.
+    try {
+      const raw = await createToken(user.id, 'verify_email', 60 * 24);
+      await sendEmail({
+        to: lowerEmail,
+        subject: 'Verify your ChatCommerce email',
+        html: emailLayout(
+          'Confirm your email',
+          'Welcome to ChatCommerce! Confirm your email address to secure your account.',
+          { href: `${appUrl()}/api/auth/verify?token=${raw}`, label: 'Verify email' },
+        ),
+      });
+    } catch (e) {
+      console.error('[signup] verification email skipped', e);
+    }
 
     const token = await createSession({
       uid: user.id,

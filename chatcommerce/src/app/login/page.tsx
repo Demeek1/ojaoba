@@ -42,6 +42,9 @@ export default function Login() {
           <div>
             <label className="label" htmlFor="password">Password</label>
             <input id="password" name="current-password" type="password" autoComplete="current-password" className="input" value={password} onChange={(e) => setPassword(e.target.value)} required />
+            <div className="mt-1.5 text-right">
+              <Link href="/forgot" className="text-xs font-medium text-brand-700">Forgot password?</Link>
+            </div>
           </div>
         </div>
         <button className="btn mt-6 w-full" disabled={loading}>
