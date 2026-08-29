@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { api } from '@/lib/client';
+import MfaCard from './MfaCard';
 
 export default function Settings() {
   const [me, setMe] = useState<any>(null);
@@ -49,6 +50,9 @@ export default function Settings() {
           {busy ? 'Redirecting…' : 'Manage subscription'}
         </button>
       </div>
+
+      <MfaCard initialEnabled={!!me.mfaEnabled} />
+
       {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
     </div>
   );

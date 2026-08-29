@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { ownerQuery } from '@/lib/db';
-import { verifyPassword, createSession, setSessionCookie } from '@/lib/auth';
+import { verifyPassword, createSession, setSessionCookie, createMfaChallenge } from '@/lib/auth';
 import { json, err, guard } from '@/lib/util';
 import { clientIp, isRateLimited, recordFail } from '@/lib/ratelimit';
 
@@ -33,6 +33,18 @@ export async function POST(req: Request) {
       return err('Invalid email or password', 401);
     }
     if (u.tenant_status === 'suspended') return err('This account is suspended. Contact support.', 403);
+
+    // If this user has MFA enabled, don't issue a full session yet — require the
+    // 6-digit code. Best-effort + column-safe so pre-migration logins still work.
+    try {
+      const mrows = await ownerQuery(`SELECT mfa_enabled FROM users WHERE id = $1`, [u.id]);
+      if (mrows[0]?.mfa_enabled) {
+        const mfaToken = await createMfaChallenge({ uid: u.id, tid: u.tenant_id, role: u.role, email });
+        return json({ mfaRequired: true, mfaToken });
+      }
+    } catch {
+      /* mfa columns not migrated yet — proceed without MFA */
+    }
 
     const token = await createSession({ uid: u.id, tid: u.tenant_id, role: u.role, email });
     const res = json({ ok: true, role: u.role });

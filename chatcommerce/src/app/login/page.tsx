@@ -10,22 +10,72 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [mfaToken, setMfaToken] = useState('');
+  const [code, setCode] = useState('');
+
+  function go(role: string) {
+    router.push(role === 'platform_owner' ? '/admin' : '/dashboard');
+  }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setError('');
     setLoading(true);
     try {
-      const r = await api<{ role: string }>('/api/auth/login', {
+      const r = await api<{ role?: string; mfaRequired?: boolean; mfaToken?: string }>('/api/auth/login', {
         method: 'POST',
         body: { email, password },
       });
-      router.push(r.role === 'platform_owner' ? '/admin' : '/dashboard');
+      if (r.mfaRequired && r.mfaToken) {
+        setMfaToken(r.mfaToken);
+      } else {
+        go(r.role!);
+      }
     } catch (e: any) {
       setError(e.message);
     } finally {
       setLoading(false);
     }
+  }
+
+  async function submitCode(e: React.FormEvent) {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
+    try {
+      const r = await api<{ role: string }>('/api/auth/mfa', { method: 'POST', body: { mfaToken, code } });
+      go(r.role);
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  if (mfaToken) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-forest-900 px-6 py-10">
+        <form onSubmit={submitCode} className="card w-full max-w-md shadow-soft">
+          <Link href="/" className="font-display text-xl font-extrabold text-forest-900">chatcommerce</Link>
+          <h1 className="mt-5 font-display text-2xl font-extrabold text-forest-900">Two-factor code</h1>
+          <p className="mt-1 text-sm text-forest-900/60">Enter the 6-digit code from your authenticator app.</p>
+          {error && <p className="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
+          <input
+            className="input mt-5 text-center text-2xl tracking-[0.4em]"
+            inputMode="numeric"
+            autoComplete="one-time-code"
+            maxLength={6}
+            value={code}
+            onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
+            autoFocus
+            required
+          />
+          <button className="btn mt-6 w-full" disabled={loading || code.length !== 6}>
+            {loading ? 'Verifying…' : 'Verify & continue'}
+          </button>
+        </form>
+      </main>
+    );
   }
 
   return (

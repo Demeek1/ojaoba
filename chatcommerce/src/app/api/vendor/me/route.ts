@@ -13,6 +13,13 @@ export async function GET() {
         [s.tid],
       )
     )[0];
-    return json({ email: s.email, role: s.role, tenant: t });
+    let mfaEnabled = false;
+    try {
+      const m = await ownerQuery(`SELECT mfa_enabled FROM users WHERE id = $1`, [s.uid]);
+      mfaEnabled = !!m[0]?.mfa_enabled;
+    } catch {
+      /* column not migrated yet */
+    }
+    return json({ email: s.email, role: s.role, tenant: t, mfaEnabled });
   });
 }

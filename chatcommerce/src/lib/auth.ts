@@ -1,4 +1,4 @@
-import { SignJWT } from 'jose';
+import { SignJWT, jwtVerify } from 'jose';
 import bcrypt from 'bcryptjs';
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
@@ -38,6 +38,26 @@ export async function createSession(s: Session): Promise<string> {
     .setIssuedAt()
     .setExpirationTime(`${MAX_AGE}s`)
     .sign(secret());
+}
+
+/** Short-lived token issued after password check when MFA is required. Not a session. */
+export async function createMfaChallenge(s: Session): Promise<string> {
+  return new SignJWT({ tid: s.tid, role: s.role, email: s.email, mfa: 'pending' })
+    .setProtectedHeader({ alg: 'HS256' })
+    .setSubject(s.uid)
+    .setIssuedAt()
+    .setExpirationTime('5m')
+    .sign(secret());
+}
+
+export async function verifyMfaChallenge(token: string): Promise<Session | null> {
+  try {
+    const { payload } = await jwtVerify(token, secret());
+    if (payload.mfa !== 'pending' || !payload.sub) return null;
+    return { uid: payload.sub as string, tid: payload.tid as string, role: payload.role as any, email: payload.email as string };
+  } catch {
+    return null;
+  }
 }
 
 export async function setSessionCookie(res: NextResponse, token: string) {
