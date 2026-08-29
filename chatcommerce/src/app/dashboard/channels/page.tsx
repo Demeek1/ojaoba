@@ -3,16 +3,18 @@ import { useEffect, useState } from 'react';
 import { api } from '@/lib/client';
 
 // Which secret fields each channel needs. Stored encrypted; never shown back.
-const FIELDS: Record<string, { key: string; label: string }[]> = {
+const FIELDS: Record<string, { key: string; label: string; optional?: boolean }[]> = {
   whatsapp: [
     { key: 'accessToken', label: 'Cloud API access token' },
     { key: 'phoneNumberId', label: 'Phone number ID' },
     { key: 'verifyToken', label: 'Webhook verify token (you choose)' },
+    { key: 'appSecret', label: 'App secret (optional — enables signature verification)', optional: true },
   ],
   telegram: [{ key: 'botToken', label: 'Bot token (from @BotFather)' }],
   instagram: [
     { key: 'accessToken', label: 'Page access token' },
     { key: 'verifyToken', label: 'Webhook verify token (you choose)' },
+    { key: 'appSecret', label: 'App secret (optional — enables signature verification)', optional: true },
   ],
 };
 
@@ -77,7 +79,7 @@ export default function Channels() {
         {FIELDS[type].map((f) => (
           <div key={f.key}>
             <label className="label">{f.label}</label>
-            <input className="input" value={creds[f.key] || ''} onChange={(e) => setCreds({ ...creds, [f.key]: e.target.value })} required />
+            <input className="input" value={creds[f.key] || ''} onChange={(e) => setCreds({ ...creds, [f.key]: e.target.value })} required={!f.optional} />
           </div>
         ))}
         <button className="btn" disabled={busy}>{busy ? 'Connecting…' : 'Connect channel'}</button>

@@ -11,6 +11,7 @@ export interface InboundMessage {
   customerRef: string; // phone number / chat id, unique per channel
   text: string;
   raw: unknown;
+  id?: string; // provider message id, used for idempotency/replay protection
 }
 
 export interface OutboundMessage {
@@ -26,6 +27,13 @@ export interface ChannelConnector {
   send(creds: Record<string, any>, msg: OutboundMessage): Promise<void>;
   /** Optional GET verification handshake (Meta requires this for WhatsApp). */
   verify?(searchParams: URLSearchParams, creds: Record<string, any>): string | null;
+  /**
+   * Optional inbound signature verification (defense in depth on top of the
+   * per-tenant URL secret). Return false to reject. Return true when there is
+   * nothing to verify (e.g. the vendor hasn't configured an app secret), so
+   * existing channels keep working.
+   */
+  verifySignature?(rawBody: string, headers: Headers, creds: Record<string, any>): boolean;
 }
 
 import { whatsapp } from './whatsapp';

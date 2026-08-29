@@ -55,12 +55,36 @@ export async function POST(req: Request, { params }: { params: { type: string; t
   // Always 200 to providers (so they don't disable the webhook) but do nothing.
   if (!ch) return new Response('ok', { status: 200 });
 
-  const body = await req.json().catch(() => ({}));
-  const messages = connector.parseInbound(body);
   const creds = decryptSecrets(ch.credentials);
+  const raw = await req.text();
 
+  // Defense in depth: verify the provider's signature when the connector and
+  // the vendor's credentials support it (e.g. Meta X-Hub-Signature-256).
+  if (connector.verifySignature && !connector.verifySignature(raw, req.headers, creds)) {
+    console.warn('[webhook] signature verification failed', params.type, params.tenantId);
+    return new Response('ok', { status: 200 });
+  }
+
+  let body: any = {};
+  try {
+    body = JSON.parse(raw || '{}');
+  } catch {
+    return new Response('ok', { status: 200 });
+  }
+
+  const messages = connector.parseInbound(body);
   for (const inbound of messages) {
     try {
+      // Idempotency / replay protection: skip messages we've already processed.
+      if (inbound.id) {
+        const eventId = `${params.type}:${ch.id}:${inbound.id}`;
+        const inserted = await ownerQuery(
+          `INSERT INTO webhook_events (id, tenant_id) VALUES ($1, $2)
+           ON CONFLICT (id) DO NOTHING RETURNING id`,
+          [eventId, params.tenantId],
+        ).catch(() => [{ id: eventId }]); // if table missing, don't block delivery
+        if (inserted.length === 0) continue; // already handled
+      }
       const reply = await handleInbound(params.tenantId, ch.id, params.type, 'USD', inbound);
       await connector.send(creds, { customerRef: inbound.customerRef, text: reply.text });
     } catch (e) {

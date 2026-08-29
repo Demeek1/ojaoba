@@ -1,11 +1,26 @@
+import { createHmac, timingSafeEqual } from 'crypto';
 import type { ChannelConnector, InboundMessage, OutboundMessage } from './index';
 
 /**
  * WhatsApp via Meta Cloud API.
- * Credentials (encrypted at rest): { accessToken, phoneNumberId, verifyToken }
+ * Credentials (encrypted at rest): { accessToken, phoneNumberId, verifyToken, appSecret? }
  */
 export const whatsapp: ChannelConnector = {
   type: 'whatsapp',
+
+  verifySignature(rawBody, headers, creds) {
+    const appSecret = creds.appSecret;
+    if (!appSecret) return true; // nothing configured to verify against
+    const sig = headers.get('x-hub-signature-256') || '';
+    const expected = 'sha256=' + createHmac('sha256', appSecret).update(rawBody).digest('hex');
+    try {
+      const a = Buffer.from(sig);
+      const b = Buffer.from(expected);
+      return a.length === b.length && timingSafeEqual(a, b);
+    } catch {
+      return false;
+    }
+  },
 
   verify(params, creds) {
     // Meta webhook verification handshake
@@ -25,7 +40,7 @@ export const whatsapp: ChannelConnector = {
         for (const change of entry?.changes ?? []) {
           for (const m of change?.value?.messages ?? []) {
             const text = m?.text?.body ?? m?.button?.text ?? m?.interactive?.list_reply?.title ?? '';
-            if (m?.from) out.push({ customerRef: String(m.from), text: String(text), raw: m });
+            if (m?.from) out.push({ customerRef: String(m.from), text: String(text), raw: m, id: m?.id ? String(m.id) : undefined });
           }
         }
       }
