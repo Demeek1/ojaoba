@@ -1,6 +1,7 @@
 import { tenantTx, ownerQuery } from './db';
 import type { InboundMessage } from './channels';
-import { aiEnabled, aiConcierge, type AiAction } from './ai';
+import { aiEnabled, type AiAction } from './ai';
+import { runAssistant } from './assistant';
 import { decryptSecrets } from './crypto';
 import { initializeTransaction, syntheticEmail } from './paystack';
 
@@ -93,28 +94,33 @@ export async function handleInbound(
     /* column not migrated yet */
   }
 
-  // ── Phase 2: decide the action (AI concierge, else keyword) ───────────────
-  let action: AiAction | null = null;
-  let aiReply: string | null = null;
-  if (aiEnabled()) {
-    const aip = snap.products.map((p, i) => ({
-      index: i + 1,
-      id: p.id,
-      title: p.title,
-      priceLabel: fmt(Number(p.price_cents), currency),
-    }));
-    const r = await aiConcierge(
-      snap.storeName,
-      text,
-      aip,
-      snap.cart.map((c) => ({ title: c.title, qty: c.qty })),
-    );
-    if (r) {
-      action = r.action;
-      aiReply = r.reply;
+  // ── Phase 2: decide the action ────────────────────────────────────────────
+  // Explicit commands stay deterministic (so checkout/payment is always
+  // reliable). Everything else goes to the rich per-vendor AI assistant, which
+  // can search the catalogue and modify the cart. Falls back to the keyword bot.
+  const lower = text.toLowerCase().trim();
+  const isCommand =
+    ['menu', 'cart', 'checkout', 'clear', 'hi', 'hello', 'start', 'hey'].includes(lower) ||
+    /^add\s+\d+$/.test(lower);
+
+  if (!isCommand && aiEnabled()) {
+    const outcome = await runAssistant(tenantId, snap.storeName, currency, text, snap.cart.map((c) => ({ ...c })));
+    if (outcome) {
+      if (outcome.changed) {
+        await tenantTx(tenantId, async (q) => {
+          await q(`UPDATE conversations SET state = $2, updated_at = now() WHERE id = $1`, [
+            snap.convId,
+            JSON.stringify({ cart: outcome.cart }),
+          ]);
+        });
+      }
+      return { text: outcome.reply };
     }
+    // assistant unavailable → fall through to keyword handling
   }
-  if (!action) action = parseKeyword(text);
+
+  let action: AiAction = parseKeyword(text);
+  const aiReply: string | null = null;
 
   // ── Phase 3: apply the action (write transaction) ─────────────────────────
   const result: any = await tenantTx(tenantId, async (q) => {
