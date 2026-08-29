@@ -1,16 +1,23 @@
 import Link from 'next/link';
+import { headers } from 'next/headers';
 import Logo from './Logo';
+import PricingCards from './PricingCards';
+import { currencyForCountry } from '@/lib/plans';
 import {
   MessageCircle, Store, ShieldCheck, Zap, Plug, BarChart3, ArrowRight, Play, Menu, Check, X,
-  BadgeCheck, Clock, Lock, Sparkles, Star, Quote,
+  BadgeCheck, Clock, Lock, Sparkles,
 } from 'lucide-react';
 
+export const dynamic = 'force-dynamic';
+
 export default function Home() {
+  const currency = currencyForCountry(headers().get('x-vercel-ip-country'));
+
   return (
     <main className="min-h-screen bg-forest-900 text-white">
       {/* Announcement bar */}
       <div className="bg-brand-500 px-4 py-2 text-center text-sm font-semibold text-forest-900">
-        🚀 No waitlist — go live in minutes. Plans from ₦7,500/mo.
+        🚀 Self-serve — create your store in minutes. Plans from ₦15,000/mo.
       </div>
 
       {/* Nav */}
@@ -32,37 +39,32 @@ export default function Home() {
       {/* Hero */}
       <section className="mx-auto max-w-6xl px-5 pb-10 pt-6 sm:pt-12">
         <span className="animate-fade-up inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3 py-1 text-sm text-white/80">
-          <Sparkles className="h-4 w-4 text-brand-400" /> WhatsApp · Telegram · Instagram commerce
+          <Sparkles className="h-4 w-4 text-brand-400" /> WhatsApp-first commerce for African sellers
         </span>
         <h1 className="animate-fade-up d1 mt-5 max-w-4xl font-display text-5xl font-extrabold leading-[0.98] tracking-tight sm:text-7xl">
           Turn every chat into a <span className="grad-text">checkout.</span>
         </h1>
         <p className="animate-fade-up d2 mt-6 max-w-2xl text-lg leading-relaxed text-white/75 sm:text-xl">
-          ChatCommerce turns your WhatsApp, Telegram or Instagram into a full storefront — customers
-          browse your catalog, add to cart and check out inside the conversation. Connect your Shopify
-          or WordPress shop, or add products by hand. Live in minutes, no waitlist.
+          ChatCommerce turns your WhatsApp into a storefront — customers browse your catalog, add to
+          cart and place an order inside the conversation. Connect your Shopify or WordPress shop, or
+          add products by hand. Set up your store in minutes.
         </p>
         <div className="animate-fade-up d3 mt-8 flex flex-wrap items-center gap-4">
           <Link href="/signup" className="btn text-base">Start free <ArrowRight className="h-4 w-4" /></Link>
           <a href="#pricing" className="btn-ghost text-base">See pricing</a>
         </div>
-        <div className="animate-fade-up d4 mt-7 flex items-center gap-3">
-          <div className="flex -space-x-3">
-            {['#f9a8d4', '#fcd34d', '#93c5fd', '#86efac'].map((c, i) => (
-              <span key={i} className="h-9 w-9 rounded-full border-2 border-forest-900" style={{ background: c }} />
-            ))}
-          </div>
-          <span className="text-sm font-medium text-white/80">Join 500+ vendors selling on chat</span>
-        </div>
+        <p className="animate-fade-up d4 mt-6 text-sm font-medium text-white/60">
+          Built for fashion, food, beauty, electronics &amp; more — no code required.
+        </p>
 
-        {/* Showcase: gradient panel + phone chat */}
+        {/* Showcase */}
         <div className="mt-12 grid items-center gap-8 lg:grid-cols-[1.1fr_0.9fr]">
           <div className="relative overflow-hidden rounded-4xl ring-glow">
             <div className="grad-lime aspect-[4/3] w-full" />
             <div className="animate-floaty absolute left-5 top-5 rounded-2xl bg-white px-4 py-3 shadow-soft">
               <div className="flex items-center gap-2">
                 <span className="text-xs font-medium text-forest-900/60">Total sales</span>
-                <span className="rounded-full bg-brand-100 px-1.5 py-0.5 text-[10px] font-bold text-brand-700">+29.4%</span>
+                <span className="rounded-full bg-brand-100 px-1.5 py-0.5 text-[10px] font-bold text-brand-700">this month</span>
               </div>
               <p className="font-display text-xl font-extrabold text-forest-900">₦2,140,000</p>
             </div>
@@ -102,22 +104,22 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Stat band */}
+      {/* Stat band (sourced, no invented figure) */}
       <section className="grad-lime py-16 text-center text-forest-900">
-        <p className="font-display text-6xl font-extrabold sm:text-7xl">$5.1B</p>
-        <p className="mt-3 font-display text-lg font-semibold text-forest-900/70">Africa social-commerce market — sell your slice of it</p>
+        <p className="font-display text-4xl font-extrabold sm:text-5xl">Your customers already chat.</p>
+        <p className="mt-3 font-display text-lg font-semibold text-forest-900/70">Meet them there — and turn conversations into orders.</p>
       </section>
 
       {/* Features */}
       <section id="features" className="mx-auto max-w-6xl px-5 py-20">
         <h2 className="max-w-2xl font-display text-4xl font-extrabold leading-tight sm:text-5xl">Everything you need to sell on chat</h2>
-        <p className="mt-3 max-w-xl text-white/60">Onboard in minutes. Stay in control. Built to scale to millions of vendors.</p>
+        <p className="mt-3 max-w-xl text-white/60">Onboard in minutes. Stay in control. Built multi-tenant and secure from day one.</p>
         <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          <FeatureCard icon={<Plug />} title="Plug in any channel">Connect WhatsApp, Telegram or Instagram in minutes — a ready-made webhook per channel.</FeatureCard>
-          <FeatureCard icon={<Store />} title="Import your catalog">Sync products from Shopify or WooCommerce automatically, or add them by hand.</FeatureCard>
-          <FeatureCard icon={<MessageCircle />} title="Order inside chat">Customers say “menu”, add items and check out without leaving the conversation.</FeatureCard>
-          <FeatureCard icon={<Sparkles />} title="AI concierge">Optional AI understands natural language (“I’ll take two totes”) — with your prices always in control.</FeatureCard>
-          <FeatureCard icon={<ShieldCheck />} title="Isolated & encrypted">Every vendor sealed off in the database. Secrets encrypted with AES-256.</FeatureCard>
+          <FeatureCard icon={<Plug />} title="Plug in WhatsApp">Connect WhatsApp through Meta’s official Business Platform — with Telegram &amp; Instagram rolling out.</FeatureCard>
+          <FeatureCard icon={<Store />} title="Import your catalog">Sync products from Shopify or WooCommerce, or add them by hand or CSV.</FeatureCard>
+          <FeatureCard icon={<MessageCircle />} title="Order inside chat">Customers say “menu”, add items and place an order without leaving the conversation.</FeatureCard>
+          <FeatureCard icon={<Sparkles />} title="AI concierge">Optional AI understands natural language — and never invents prices or stock; it uses your real catalog.</FeatureCard>
+          <FeatureCard icon={<ShieldCheck />} title="Isolated & encrypted">Every vendor isolated at the database level (row-level security). Channel secrets encrypted with AES-256-GCM.</FeatureCard>
           <FeatureCard icon={<BarChart3 />} title="One clean dashboard">Track orders, channels and customers. Owner console monitors the whole platform.</FeatureCard>
         </div>
       </section>
@@ -127,8 +129,8 @@ export default function Home() {
         <div className="mx-auto max-w-5xl px-5">
           <h2 className="text-center font-display text-4xl font-extrabold tracking-tight text-forest-900 sm:text-5xl">More than an AI chat agent</h2>
           <p className="mx-auto mt-3 max-w-2xl text-center text-forest-900/60">
-            Chatbots answer questions. ChatCommerce runs the whole sale — catalog, cart, checkout, orders —
-            and you’re live today, not after a waitlist.
+            Chatbots answer questions. ChatCommerce runs the whole sale — catalog, cart, order — and you set
+            it up yourself, today.
           </p>
           <div className="mt-12 overflow-hidden rounded-3xl border border-forest-900/10 bg-white shadow-card">
             <div className="grid grid-cols-3 bg-forest-900 text-sm font-semibold text-white">
@@ -137,17 +139,17 @@ export default function Home() {
               <div className="px-5 py-4 text-center font-display text-base font-extrabold text-brand-400">ChatCommerce</div>
             </div>
             {[
-              ['Go live', 'Apply, wait for a pilot batch', 'Self-serve in minutes'],
-              ['What it does', 'Answers messages', 'Full store: cart, checkout, orders'],
-              ['Channels', 'WhatsApp only', 'WhatsApp + Telegram + Instagram'],
+              ['Go live', 'Apply, wait for a pilot batch', 'Self-serve sign-up'],
+              ['What it does', 'Answers messages', 'Full store: catalog, cart, orders'],
+              ['Channels', 'WhatsApp only', 'WhatsApp today; Telegram & IG rolling out'],
               ['Store sync', '—', 'Shopify + WooCommerce import'],
               ['Storefront page', '—', 'Every vendor gets one'],
-              ['Entry price', 'from ₦30,000/mo', 'from ₦7,500/mo'],
+              ['Entry price', 'from ₦30,000/mo', 'from ₦15,000/mo'],
             ].map((row, i) => (
               <div key={i} className={`grid grid-cols-3 items-center text-sm ${i % 2 ? 'bg-cream/50' : 'bg-white'}`}>
                 <div className="px-5 py-4 font-semibold text-forest-900">{row[0]}</div>
-                <div className="flex items-center justify-center gap-2 px-5 py-4 text-forest-900/50"><X className="h-4 w-4 text-red-400" />{row[1]}</div>
-                <div className="flex items-center justify-center gap-2 px-5 py-4 font-semibold text-forest-900"><Check className="h-4 w-4 text-brand-600" />{row[2]}</div>
+                <div className="flex items-center justify-center gap-2 px-5 py-4 text-center text-forest-900/50"><X className="h-4 w-4 shrink-0 text-red-400" />{row[1]}</div>
+                <div className="flex items-center justify-center gap-2 px-5 py-4 text-center font-semibold text-forest-900"><Check className="h-4 w-4 shrink-0 text-brand-600" />{row[2]}</div>
               </div>
             ))}
           </div>
@@ -156,10 +158,10 @@ export default function Home() {
 
       {/* How it works */}
       <section className="mx-auto max-w-6xl px-5 py-20">
-        <h2 className="text-center font-display text-4xl font-extrabold tracking-tight sm:text-5xl">Live in three steps</h2>
+        <h2 className="text-center font-display text-4xl font-extrabold tracking-tight sm:text-5xl">Live in a few steps</h2>
         <div className="mx-auto mt-12 grid max-w-4xl gap-6 md:grid-cols-3">
-          <Step n="01" title="Create your store" icon={<Store />}>Sign up and get your isolated store + storefront link instantly.</Step>
-          <Step n="02" title="Connect a channel" icon={<Plug />}>Add WhatsApp, Telegram or Instagram and import your products.</Step>
+          <Step n="01" title="Create your store" icon={<Store />}>Sign up and get your isolated store + storefront link.</Step>
+          <Step n="02" title="Connect a channel" icon={<Plug />}>Add WhatsApp and import your products.</Step>
           <Step n="03" title="Take chat orders" icon={<MessageCircle />}>Customers message “menu” and order in seconds. 🎉</Step>
         </div>
       </section>
@@ -170,40 +172,26 @@ export default function Home() {
           <div className="grid gap-8 lg:grid-cols-2 lg:items-center">
             <div>
               <span className="inline-flex items-center gap-2 rounded-full bg-brand-500/15 px-3 py-1 text-sm font-semibold text-brand-300"><Lock className="h-4 w-4" /> Security first</span>
-              <h2 className="mt-4 font-display text-3xl font-extrabold sm:text-4xl">Your data, sealed and encrypted</h2>
-              <p className="mt-3 text-white/70">Built multi-tenant from day one — every vendor is isolated at the database level, so no one can see anyone else’s data. Tokens are encrypted, passwords hashed, traffic on HTTPS, and abuse is rate-limited.</p>
+              <h2 className="mt-4 font-display text-3xl font-extrabold sm:text-4xl">Your data, isolated and encrypted</h2>
+              <p className="mt-3 text-white/70">Built multi-tenant from day one — every vendor is isolated at the database level with row-level security, so no one sees anyone else’s data. Channel tokens are encrypted, passwords hashed, traffic on HTTPS, and abuse is rate-limited.</p>
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
               <SecItem icon={<ShieldCheck />} title="Row-level isolation">Enforced in the database</SecItem>
-              <SecItem icon={<Lock />} title="AES-256 encryption">Secrets safe at rest</SecItem>
-              <SecItem icon={<Clock />} title="Rate limited">Bots &amp; brute-force blocked</SecItem>
+              <SecItem icon={<Lock />} title="AES-256-GCM">Channel secrets encrypted</SecItem>
+              <SecItem icon={<Clock />} title="Rate limited">Bots &amp; brute-force blunted</SecItem>
               <SecItem icon={<BadgeCheck />} title="HTTPS everywhere">Encrypted in transit</SecItem>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Testimonials */}
-      <section className="mx-auto max-w-6xl px-5 py-20">
-        <h2 className="text-center font-display text-4xl font-extrabold tracking-tight sm:text-5xl">Loved by chat-first sellers</h2>
-        <div className="mt-12 grid gap-5 md:grid-cols-3">
-          <Testimonial name="Amaka O." role="Fashion vendor, Lagos" text="I stopped losing sales to slow replies. Customers just order in WhatsApp now." />
-          <Testimonial name="Tunde A." role="Gadget store" text="Set up in one evening. The storefront link alone doubled my DMs into real orders." />
-          <Testimonial name="Blessing E." role="Skincare brand" text="The dashboard makes it feel like a real business. Way easier than juggling chats." />
-        </div>
-      </section>
-
-      {/* Pricing teaser */}
+      {/* Pricing */}
       <section id="pricing" className="surface-light py-20">
         <div className="mx-auto max-w-6xl px-5">
           <h2 className="text-center font-display text-4xl font-extrabold tracking-tight text-forest-900 sm:text-5xl">Simple pricing. Start free.</h2>
-          <p className="mt-3 text-center text-forest-900/60">14-day free trial. No card. Upgrade when you’re ready to go live.</p>
-          <div className="mt-12 grid gap-5 sm:grid-cols-3">
-            <PriceCard name="Starter" price="₦7,500" per="/mo" features={['1 channel', '1 store', 'Up to 50 products', 'Chat ordering']} />
-            <PriceCard name="Growth" price="₦20,000" per="/mo" highlight features={['WhatsApp + sync', 'Unlimited products', 'Broadcasts', 'Order dashboard']} />
-            <PriceCard name="Pro" price="₦50,000" per="/mo" features={['All channels', 'Analytics', 'Priority support', 'AI concierge']} />
-          </div>
-          <p className="mt-6 text-center"><Link href="/pricing" className="font-display font-bold text-brand-700">See full pricing →</Link></p>
+          <p className="mt-3 text-center text-forest-900/60">14-day free trial, no card. Switch currency anytime.</p>
+          <div className="mt-12"><PricingCards initialCurrency={currency} variant="compact" /></div>
+          <p className="mt-6 text-center"><Link href="/pricing" className="font-display font-bold text-brand-700">Compare all plans →</Link></p>
         </div>
       </section>
 
@@ -212,10 +200,10 @@ export default function Home() {
         <h2 className="text-center font-display text-4xl font-extrabold tracking-tight sm:text-5xl">Questions, answered</h2>
         <div className="mt-10 space-y-3">
           <Faq q="Do I need to code?" a="No. Sign up, connect a channel, import or add products — all from the dashboard." />
-          <Faq q="Which channels work?" a="WhatsApp, Telegram and Instagram. WhatsApp uses Meta’s official Business API." />
-          <Faq q="Is there a waitlist?" a="No. You can create your store and start selling in minutes." />
-          <Faq q="How do payments work?" a="Take orders in chat and get paid with Paystack (NGN) or Stripe. Your customers, your money." />
-          <Faq q="Is my data safe?" a="Yes. Every vendor is isolated in the database, secrets are encrypted, and all traffic is over HTTPS." />
+          <Faq q="Which channels work today?" a="WhatsApp, via Meta’s official Business Platform. Telegram and Instagram are rolling out next." />
+          <Faq q="How fast can I start?" a="You can create your store and add products in minutes. WhatsApp itself requires a one-time Meta business approval, which we guide you through." />
+          <Faq q="How do payments work?" a="Take orders in chat and get paid with Paystack (Naira) or Stripe. Where in-chat checkout isn’t supported, we send a secure branded checkout link." />
+          <Faq q="Is my data safe?" a="Every vendor is isolated at the database level, channel secrets are encrypted (AES-256-GCM), and all traffic is over HTTPS. No system is ever 100% unhackable, but we hold to strong, verifiable controls." />
         </div>
       </section>
 
@@ -223,7 +211,7 @@ export default function Home() {
       <section className="mx-auto max-w-6xl px-5 pb-20">
         <div className="grad-lime rounded-4xl px-6 py-16 text-center text-forest-900">
           <h2 className="font-display text-4xl font-extrabold tracking-tight sm:text-5xl">Start selling on chat today</h2>
-          <p className="mx-auto mt-3 max-w-xl text-forest-900/70">Create your store, connect a channel, and take your first order in under 10 minutes.</p>
+          <p className="mx-auto mt-3 max-w-xl text-forest-900/70">Create your store, connect a channel, and take your first order.</p>
           <Link href="/signup" className="btn-dark mt-8 inline-flex text-base">Get started free <ArrowRight className="h-4 w-4" /></Link>
         </div>
       </section>
@@ -292,30 +280,6 @@ function SecItem({ icon, title, children }: { icon: React.ReactNode; title: stri
       <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-500/20 text-brand-300">{icon}</span>
       <p className="mt-3 font-display font-bold">{title}</p>
       <p className="text-sm text-white/60">{children}</p>
-    </div>
-  );
-}
-function Testimonial({ name, role, text }: { name: string; role: string; text: string }) {
-  return (
-    <div className="card-mint text-forest-900">
-      <Quote className="h-7 w-7 text-brand-500" />
-      <p className="mt-3 text-sm leading-relaxed text-forest-900/80">“{text}”</p>
-      <div className="mt-5 flex items-center gap-1 text-brand-500">{[...Array(5)].map((_, i) => <Star key={i} className="h-4 w-4 fill-current" />)}</div>
-      <p className="mt-3 font-display font-bold text-forest-900">{name}</p>
-      <p className="text-xs text-forest-900/50">{role}</p>
-    </div>
-  );
-}
-function PriceCard({ name, price, per, features, highlight }: { name: string; price: string; per: string; features: string[]; highlight?: boolean }) {
-  return (
-    <div className={`flex flex-col rounded-3xl p-7 ${highlight ? 'grad-lime text-forest-900 ring-glow' : 'border border-forest-900/10 bg-white text-forest-900'}`}>
-      {highlight && <span className="mb-2 inline-block w-fit rounded-full bg-forest-900 px-3 py-0.5 text-xs font-bold text-brand-400">Most popular</span>}
-      <h3 className="font-display text-lg font-extrabold">{name}</h3>
-      <p className="mt-2 font-display text-3xl font-extrabold">{price}<span className="text-base font-semibold opacity-60">{per}</span></p>
-      <ul className="mt-5 flex-1 space-y-2 text-sm">
-        {features.map((f) => <li key={f} className="flex items-center gap-2"><Check className={`h-4 w-4 ${highlight ? 'text-forest-900' : 'text-brand-600'}`} /> {f}</li>)}
-      </ul>
-      <Link href="/signup" className={`mt-6 inline-flex items-center justify-center rounded-full px-5 py-2.5 font-display text-sm font-bold ${highlight ? 'bg-forest-900 text-white' : 'btn'}`}>Choose {name}</Link>
     </div>
   );
 }

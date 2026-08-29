@@ -36,12 +36,12 @@ export default function Login() {
         {error && <p className="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
         <div className="mt-5 space-y-4">
           <div>
-            <label className="label">Email</label>
-            <input className="input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+            <label className="label" htmlFor="email">Email</label>
+            <input id="email" name="email" type="email" autoComplete="email" className="input" value={email} onChange={(e) => setEmail(e.target.value)} required />
           </div>
           <div>
-            <label className="label">Password</label>
-            <input className="input" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+            <label className="label" htmlFor="password">Password</label>
+            <input id="password" name="current-password" type="password" autoComplete="current-password" className="input" value={password} onChange={(e) => setPassword(e.target.value)} required />
           </div>
         </div>
         <button className="btn mt-6 w-full" disabled={loading}>
