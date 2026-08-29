@@ -21,7 +21,7 @@ export default function Signup() {
         method: 'POST',
         body: { businessName, email, password },
       });
-      router.push(r.role === 'platform_owner' ? '/admin' : '/dashboard');
+      router.push(r.role === 'platform_owner' ? '/admin' : '/onboarding');
     } catch (e: any) {
       setError(e.message);
     } finally {
