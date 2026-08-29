@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { api } from '@/lib/client';
 
 export default function Tenants() {
@@ -47,7 +48,9 @@ export default function Tenants() {
           <tbody>
             {tenants.map((t) => (
               <tr key={t.id} className="border-b border-forest-900/5 last:border-0 hover:bg-cream/60">
-                <td className="px-5 py-3.5 font-display font-bold text-forest-900">{t.business_name}</td>
+                <td className="px-5 py-3.5 font-display font-bold text-forest-900">
+                  <Link href={`/admin/tenants/${t.id}`} className="hover:text-brand-700 hover:underline">{t.business_name}</Link>
+                </td>
                 <td className="px-5 py-3.5 text-forest-900/50">/{t.slug}</td>
                 <td className="px-5 py-3.5 capitalize text-forest-900">{t.plan}</td>
                 <td className="px-5 py-3.5 capitalize text-forest-900/70">{t.billing_status}</td>
