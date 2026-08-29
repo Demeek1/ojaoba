@@ -1,6 +1,25 @@
-import { tenantTx } from './db';
+import { tenantTx, ownerQuery } from './db';
 import type { InboundMessage } from './channels';
 import { aiEnabled, aiConcierge, type AiAction } from './ai';
+
+/** Build the "how to pay" message from the vendor's configured method. */
+function paymentInstructions(cfg: any, totalText: string): string {
+  if (!cfg || cfg.method === 'none' || !cfg.method) return '';
+  if (cfg.method === 'bank') {
+    return (
+      `\n\n💳 To pay ${totalText}, transfer to:\n` +
+      `Bank: ${cfg.bankName || '—'}\n` +
+      `Name: ${cfg.accountName || '—'}\n` +
+      `Account: ${cfg.accountNumber || '—'}` +
+      (cfg.note ? `\n${cfg.note}` : '') +
+      `\nThen send your payment receipt here. ✅`
+    );
+  }
+  if (cfg.method === 'link' && cfg.paymentLink) {
+    return `\n\n💳 Pay ${totalText} securely here:\n${cfg.paymentLink}` + (cfg.note ? `\n${cfg.note}` : '');
+  }
+  return '';
+}
 
 /**
  * Channel-agnostic conversational ordering engine.
@@ -62,6 +81,15 @@ export async function handleInbound(
       storeName: (tenant?.business_name as string) ?? 'our store',
     };
   });
+
+  // Best-effort read of the vendor's payment config (column may not be migrated).
+  let payCfg: any = {};
+  try {
+    const r = await ownerQuery(`SELECT payment_config FROM tenants WHERE id = $1`, [tenantId]);
+    payCfg = r[0]?.payment_config ?? {};
+  } catch {
+    /* column not migrated yet */
+  }
 
   // ── Phase 2: decide the action (AI concierge, else keyword) ───────────────
   let action: AiAction | null = null;
@@ -137,7 +165,8 @@ export async function handleInbound(
           [tenantId, snap.convId, channelType, inbound.customerRef, JSON.stringify(cart), total, currency],
         );
         await save([]);
-        return { text: `🎉 Order placed! Total *${fmt(total, currency)}*. ${snap.storeName} will confirm shortly. Reply *menu* to order again.` };
+        const pay = paymentInstructions(payCfg, fmt(total, currency));
+        return { text: `🎉 Order placed! Total *${fmt(total, currency)}*.${pay || ` ${snap.storeName} will confirm shortly.`}\n\nReply *menu* to order again.` };
       }
 
       case 'clear':

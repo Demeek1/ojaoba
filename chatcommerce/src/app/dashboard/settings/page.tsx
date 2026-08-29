@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '@/lib/client';
 import MfaCard from './MfaCard';
+import PaymentsCard from './PaymentsCard';
 
 export default function Settings() {
   const [me, setMe] = useState<any>(null);
@@ -50,6 +51,8 @@ export default function Settings() {
           {busy ? 'Redirecting…' : 'Manage subscription'}
         </button>
       </div>
+
+      <PaymentsCard />
 
       <MfaCard initialEnabled={!!me.mfaEnabled} />
 

@@ -15,6 +15,7 @@ const MIGRATIONS: [string, string][] = [
   ['users.mfa_secret', `ALTER TABLE users ADD COLUMN IF NOT EXISTS mfa_secret TEXT;`],
   ['users.mfa_enabled', `ALTER TABLE users ADD COLUMN IF NOT EXISTS mfa_enabled BOOLEAN NOT NULL DEFAULT false;`],
   ['tenants.onboarding_state', `ALTER TABLE tenants ADD COLUMN IF NOT EXISTS onboarding_state JSONB NOT NULL DEFAULT '{}'::jsonb;`],
+  ['tenants.payment_config', `ALTER TABLE tenants ADD COLUMN IF NOT EXISTS payment_config JSONB NOT NULL DEFAULT '{}'::jsonb;`],
   ['auth_tokens', `CREATE TABLE IF NOT EXISTS auth_tokens (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
