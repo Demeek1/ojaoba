@@ -1,6 +1,7 @@
 import { ownerQuery } from '@/lib/db';
 import { notFound } from 'next/navigation';
 import { MessageCircle, Package, ShieldCheck, Truck, BadgeCheck, Store as StoreIcon } from 'lucide-react';
+import Tracker from './Tracker';
 
 export const runtime = 'nodejs';
 export const revalidate = 60;
@@ -32,6 +33,7 @@ export default async function Storefront({ params }: { params: { slug: string } 
 
   return (
     <main className="min-h-screen bg-cream">
+      <Tracker tenantId={tenant.id} />
       {/* Hero: cover band + overlapping avatar */}
       <header className="relative">
         <div className="grad-lime h-40 w-full sm:h-52" />

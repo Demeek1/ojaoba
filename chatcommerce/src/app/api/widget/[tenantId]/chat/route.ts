@@ -1,6 +1,7 @@
 import { ownerQuery } from '@/lib/db';
 import { runAssistant, type CartItem } from '@/lib/assistant';
 import { clientIp, isRateLimited, recordFail } from '@/lib/ratelimit';
+import { logEvent } from '@/lib/track';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -37,14 +38,22 @@ export async function POST(req: Request, { params }: { params: { tenantId: strin
 
   const body = await req.json().catch(() => ({}));
   const message = String(body?.message || '').slice(0, 500);
+  const sessionId = body?.sessionId ? String(body.sessionId).slice(0, 64) : null;
   const cart: CartItem[] = Array.isArray(body?.cart) ? body.cart.slice(0, 50) : [];
   if (!message) return json({ reply: `Hi! Welcome to ${tenant.business_name}. What are you looking for today? 😊`, cart });
+
+  const cartCountBefore = cart.reduce((s, c) => s + (c.qty || 0), 0);
+  await logEvent(tenantId, sessionId, 'ai_message', { text: message });
 
   const currency = (await ownerQuery(`SELECT currency FROM products WHERE tenant_id = $1 LIMIT 1`, [tenantId]))[0]?.currency || 'NGN';
 
   // Rich assistant when AI is configured…
   const outcome = await runAssistant(tenantId, tenant.business_name, currency, message, cart);
-  if (outcome) return json({ reply: outcome.reply, cart: outcome.cart, slug: tenant.slug });
+  if (outcome) {
+    const after = outcome.cart.reduce((s, c) => s + (c.qty || 0), 0);
+    if (after > cartCountBefore) await logEvent(tenantId, sessionId, 'add_to_cart', {});
+    return json({ reply: outcome.reply, cart: outcome.cart, slug: tenant.slug });
+  }
 
   // …otherwise a simple catalogue search fallback.
   const rows = await ownerQuery(

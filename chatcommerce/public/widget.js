@@ -13,9 +13,12 @@
   var accent = script.getAttribute('data-color') || '#7ed957';
   var ink = '#0b150d';
   var key = 'cc_widget_cart_' + store;
+  var sKey = 'cc_widget_sid_' + store;
 
   var cart = [];
   try { cart = JSON.parse(localStorage.getItem(key) || '[]'); } catch (e) {}
+  var sid = '';
+  try { sid = localStorage.getItem(sKey) || ''; if (!sid) { sid = 's_' + Math.random().toString(36).slice(2) + Date.now().toString(36); localStorage.setItem(sKey, sid); } } catch (e) {}
   var slug = null;
   var open = false;
 
@@ -90,7 +93,7 @@
     var typing = addMsg('…', 'in');
     fetch(base + '/api/widget/' + store + '/chat', {
       method: 'POST', headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ message: text, cart: cart })
+      body: JSON.stringify({ message: text, cart: cart, sessionId: sid })
     }).then(function (r) { return r.json(); }).then(function (d) {
       typing.remove();
       if (d.slug) slug = d.slug;

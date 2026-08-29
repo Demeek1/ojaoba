@@ -29,6 +29,14 @@ const MIGRATIONS: [string, string][] = [
     id TEXT PRIMARY KEY,
     tenant_id UUID,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now());`],
+  ['web_events', `CREATE TABLE IF NOT EXISTS web_events (
+    id BIGSERIAL PRIMARY KEY,
+    tenant_id UUID NOT NULL,
+    session_id TEXT,
+    type TEXT NOT NULL,
+    meta JSONB NOT NULL DEFAULT '{}',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now());`],
+  ['idx_web_events_tenant', `CREATE INDEX IF NOT EXISTS idx_web_events_tenant ON web_events(tenant_id, created_at DESC);`],
 ];
 
 export async function GET() {
