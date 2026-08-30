@@ -1,7 +1,7 @@
 'use client';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutGrid, Package, MessageCircle, Store, Receipt, Settings, BarChart3, Users } from 'lucide-react';
+import { LayoutGrid, Package, MessageCircle, Store, Receipt, Settings, BarChart3, Users, Megaphone } from 'lucide-react';
 
 const nav = [
   { href: '/dashboard', label: 'Overview', icon: LayoutGrid },
@@ -9,6 +9,7 @@ const nav = [
   { href: '/dashboard/channels', label: 'Channels', icon: MessageCircle },
   { href: '/dashboard/stores', label: 'Stores', icon: Store },
   { href: '/dashboard/orders', label: 'Orders', icon: Receipt },
+  { href: '/dashboard/broadcast', label: 'Broadcast', icon: Megaphone },
   { href: '/dashboard/analytics', label: 'Analytics', icon: BarChart3 },
   { href: '/dashboard/team', label: 'Team', icon: Users },
   { href: '/dashboard/settings', label: 'Settings', icon: Settings },
