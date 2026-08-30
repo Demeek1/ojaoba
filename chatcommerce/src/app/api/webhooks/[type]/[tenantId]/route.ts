@@ -2,6 +2,7 @@ import { ownerQuery } from '@/lib/db';
 import { decryptSecrets, safeEqual } from '@/lib/crypto';
 import { getChannel } from '@/lib/channels';
 import { handleInbound } from '@/lib/chatbot';
+import { resolveMedia } from '@/lib/media';
 
 export const runtime = 'nodejs';
 
@@ -85,6 +86,24 @@ export async function POST(req: Request, { params }: { params: { type: string; t
         ).catch(() => [{ id: eventId }]); // if table missing, don't block delivery
         if (inserted.length === 0) continue; // already handled
       }
+
+      // Voice note / image → understand it into text (Groq transcription or
+      // Claude vision), then let the normal bot handle it.
+      if (inbound.mediaKind && inbound.mediaId) {
+        const understood = await resolveMedia(inbound.mediaKind, inbound.mediaId, creds);
+        if (understood) {
+          inbound.text = inbound.text ? `${inbound.text} ${understood}` : understood;
+        } else if (!inbound.text) {
+          await connector.send(creds, {
+            customerRef: inbound.customerRef,
+            text: inbound.mediaKind === 'audio'
+              ? "I couldn't quite hear that voice note — please type what you need. 🙏"
+              : "I couldn't read that image — please type the product name. 🙏",
+          });
+          continue;
+        }
+      }
+
       const reply = await handleInbound(params.tenantId, ch.id, params.type, 'USD', inbound);
       await connector.send(creds, { customerRef: inbound.customerRef, text: reply.text });
     } catch (e) {

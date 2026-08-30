@@ -39,8 +39,12 @@ export const whatsapp: ChannelConnector = {
       for (const entry of body?.entry ?? []) {
         for (const change of entry?.changes ?? []) {
           for (const m of change?.value?.messages ?? []) {
-            const text = m?.text?.body ?? m?.button?.text ?? m?.interactive?.list_reply?.title ?? '';
-            if (m?.from) out.push({ customerRef: String(m.from), text: String(text), raw: m, id: m?.id ? String(m.id) : undefined });
+            let text = m?.text?.body ?? m?.button?.text ?? m?.interactive?.list_reply?.title ?? '';
+            let mediaId: string | undefined;
+            let mediaKind: 'image' | 'audio' | undefined;
+            if (m?.type === 'audio' && m?.audio?.id) { mediaId = String(m.audio.id); mediaKind = 'audio'; }
+            else if (m?.type === 'image' && m?.image?.id) { mediaId = String(m.image.id); mediaKind = 'image'; text = m?.image?.caption ?? ''; }
+            if (m?.from) out.push({ customerRef: String(m.from), text: String(text), raw: m, id: m?.id ? String(m.id) : undefined, mediaId, mediaKind });
           }
         }
       }

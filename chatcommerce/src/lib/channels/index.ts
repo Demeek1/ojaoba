@@ -12,6 +12,8 @@ export interface InboundMessage {
   text: string;
   raw: unknown;
   id?: string; // provider message id, used for idempotency/replay protection
+  mediaId?: string; // provider media id (for voice notes / images)
+  mediaKind?: 'image' | 'audio';
 }
 
 export interface OutboundMessage {
