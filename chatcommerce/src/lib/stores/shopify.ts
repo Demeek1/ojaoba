@@ -12,6 +12,20 @@ export const shopify: StoreConnector = {
     const { accessToken } = creds;
     if (!domain || !accessToken) throw new Error('Shopify domain and accessToken are required');
 
+    // Read the shop's real currency (was previously hardcoded to USD).
+    let currency = 'USD';
+    try {
+      const sres = await fetch(`https://${domain}/admin/api/2024-07/shop.json`, {
+        headers: { 'X-Shopify-Access-Token': accessToken, 'Content-Type': 'application/json' },
+      });
+      if (sres.ok) {
+        const sd: any = await sres.json();
+        if (sd?.shop?.currency) currency = String(sd.shop.currency);
+      }
+    } catch {
+      /* keep default */
+    }
+
     const out: NormalizedProduct[] = [];
     let url: string | null =
       `https://${domain}/admin/api/2024-07/products.json?limit=250`;
@@ -30,7 +44,7 @@ export const shopify: StoreConnector = {
           title: p.title ?? 'Untitled',
           description: stripHtml(p.body_html ?? ''),
           priceCents: isNaN(price) ? 0 : price,
-          currency: 'USD',
+          currency,
           imageUrl: p?.image?.src ?? p?.images?.[0]?.src ?? null,
           stock: typeof variant.inventory_quantity === 'number' ? variant.inventory_quantity : null,
         });

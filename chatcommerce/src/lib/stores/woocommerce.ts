@@ -16,6 +16,20 @@ export const woocommerce: StoreConnector = {
     const base = domain.replace(/\/$/, '');
     const auth = Buffer.from(`${consumerKey}:${consumerSecret}`).toString('base64');
 
+    // Read the store's real currency (was previously hardcoded to USD).
+    let currency = 'USD';
+    try {
+      const cres = await fetch(`https://${base}/wp-json/wc/v3/data/currencies/current`, {
+        headers: { Authorization: `Basic ${auth}` },
+      });
+      if (cres.ok) {
+        const cd: any = await cres.json();
+        if (cd?.code) currency = String(cd.code);
+      }
+    } catch {
+      /* keep default */
+    }
+
     const out: NormalizedProduct[] = [];
     let page = 1;
     while (true) {
@@ -33,7 +47,7 @@ export const woocommerce: StoreConnector = {
           title: p.name ?? 'Untitled',
           description: (p.short_description || p.description || '').replace(/<[^>]*>/g, '').trim().slice(0, 2000),
           priceCents: isNaN(price) ? 0 : price,
-          currency: 'USD',
+          currency,
           imageUrl: p?.images?.[0]?.src ?? null,
           stock: typeof p.stock_quantity === 'number' ? p.stock_quantity : null,
         });
